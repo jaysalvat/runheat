@@ -19,7 +19,7 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
-  #map { position: absolute; inset: 0; }
+  #map { position: absolute; inset: 0; background: #000; }
   .panel { position: absolute; top: 16px; left: 16px; width: 340px; padding: 18px;
     background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--panel-border);
     border-radius: 12px; z-index: 2; max-height: calc(100% - 32px); overflow: auto; box-shadow: var(--shadow); }
@@ -52,14 +52,6 @@
     background: var(--accent); color: #111; font-weight: 600; }
   .layers label:has(input:focus-visible), .src label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
   .layers input, .src input { position: absolute; opacity: 0; pointer-events: none; }
-  .colors { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .colors label { display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: var(--chip);
-    border-radius: 8px; cursor: pointer; }
-  .colors input { width: 26px; height: 22px; padding: 0; border: 0; background: none; cursor: pointer; }
-  .colors input::-webkit-color-swatch-wrapper { padding: 0; }
-  .colors input::-webkit-color-swatch { border: 1px solid var(--line); border-radius: 5px; }
-  .link { background: none; border: 0; padding: 0; color: var(--muted); font: inherit; cursor: pointer; text-decoration: underline; }
-  .link:hover { color: var(--text); }
   .range { position: relative; height: 24px; }
   .range input { position: absolute; left: 0; right: 0; width: 100%; margin: 0; pointer-events: none;
     -webkit-appearance: none; appearance: none; background: none; top: 6px; }
@@ -115,7 +107,6 @@
     border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font: inherit; }
   .btn:hover { border-color: var(--accent); }
   #toggle { display: none; }
-  .colors label { color: var(--text); white-space: nowrap; }
   .goal { display: flex; align-items: center; gap: 8px; color: var(--muted); }
   .goal input { width: 90px; padding: 6px 8px; background: var(--chip); color: var(--text); border: 1px solid transparent;
     border-radius: 8px; font: inherit; outline: none; }
@@ -169,6 +160,8 @@
     <label title="Brighter where you run more often"><input type="checkbox" id="showLines">Density</label>
     <label title="Where you run most, as a heat gradient"><input type="checkbox" id="showHeat">Heatmap</label>
     <label title="Wide, soft view of your favourite areas"><input type="checkbox" id="showSoft">Hotspots</label>
+    <label title="Hotspots computed from the raw GPS points (previous method): pauses and bends show up as blobs">
+      <input type="checkbox" id="showRaw">Raw hotspots</label>
     <label title="Paths run for the first time in the selected period">
       <input type="checkbox" id="showExplore">New paths</label>
   </div>
@@ -213,13 +206,13 @@
     <input type="range" id="heatK" min="0" max="100" step="1" class="slider">
   </div>
 
-  <div class="label"><span>Colours</span>
-    <button class="link" id="colReset" title="Back to the basemap's default colours">Reset</button></div>
-  <div class="colors">
-    <label><input type="color" id="colPlain">Routes</label>
-    <label><input type="color" id="colLines">Density</label>
-    <label><input type="color" id="colExplore">New paths</label>
-  </div>
+
+  <div class="label"><span>Layers opacity</span><span id="layerOpVal"></span></div>
+  <input type="range" id="layerOp" min="10" max="100" step="1" class="slider">
+
+  <div class="label"><span>Map opacity</span><span id="mapOpVal"></span></div>
+  <input type="range" id="mapOp" min="0" max="100" step="1" class="slider"
+    title="Fades the basemap to black so your runs stand out">
 
   <div class="label"><span>Yearly goal</span></div>
   <label class="goal"><input type="number" id="goal" min="50" max="10000" step="50"> km / year</label>
@@ -263,7 +256,10 @@
 <script>
 // ---------- Basemaps ----------
 const LOCALE = 'en-GB';           // dates "3 Aug 2022", numbers "1,346"
-const EXPLORE_COLOR = '#5ef2c2';  // default: mint green, stands out from the orange tracks on every basemap
+// Heatmap sampling: one point every 20 m along the tracks; weights tuned for that density
+const HEAT_STEP_M = 20;
+const HEAT_W = .02, SOFT_W = .005;
+const RAW_W = .008;   // Raw hotspots: weight tuned for the raw GPS points (one every ~60 m on average)
 const SAT_ATTR = 'Imagery © Esri, Maxar, Earthstar Geographics';
 function rasterStyle(url, attribution, maxzoom) {
   return { version: 8,
@@ -273,20 +269,26 @@ function rasterStyle(url, attribution, maxzoom) {
 const BASES = {
   dark: {
     style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-    line: '#ffb38a', glow: '#ff6a2b', lineOpacity: [.06, .12, .3], glowOpacity: [.02, .03], plain: '#4fd1ff',
+    // one colour for every layer (Density's); Density stands out by its halo
+    line: '#ffb38a', glow: '#ff6a2b', lineOpacity: [.06, .12, .3], glowOpacity: [.05, .08], plain: '#ffb38a',
+    explore: '#ffb38a', casing: '#0b0d10',
   },
   // Classic OSM map ("OSM Carto" style, the most colorful). Personal use only:
   // the tile.openstreetmap.org policy forbids heavy/public use.
   standard: {
     style: rasterStyle('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', 19),
-    line: '#e2470b', glow: '#ff6a2b', lineOpacity: [.1, .2, .45], glowOpacity: [0, 0], plain: '#0a5cff',
+    // Strava-like bright orange on every layer; white casing under the dashes
+    line: '#fc4c02', glow: '#fc4c02', lineOpacity: [.15, .3, .55], glowOpacity: [.04, .07], plain: '#fc4c02',
+    explore: '#fc4c02', casing: '#ffffff',
   },
   // Terrain: contour lines + hillshading, handy for trail running
   topo: {
     style: rasterStyle('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
       'Tiles © Esri — Esri, HERE, Garmin, USGS, OpenStreetMap', 19),
-    line: '#e2470b', glow: '#ff6a2b', lineOpacity: [.1, .2, .45], glowOpacity: [0, 0], plain: '#0a5cff',
+    // Strava-like bright orange on every layer; white casing under the dashes
+    line: '#fc4c02', glow: '#fc4c02', lineOpacity: [.15, .3, .55], glowOpacity: [.04, .07], plain: '#fc4c02',
+    explore: '#fc4c02', casing: '#ffffff',
   },
   satellite: {
     style: {
@@ -303,35 +305,40 @@ const BASES = {
         { id: 'sat-labels', type: 'raster', source: 'labels', paint: { 'raster-opacity': .85 } },
       ],
     },
-    line: '#ffd2b8', glow: '#ff6a2b', lineOpacity: [.12, .22, .45], glowOpacity: [.04, .06], plain: '#00e5ff',
+    // Strava-like bright orange, dark casing under the dashes
+    line: '#fc4c02', glow: '#fc4c02', lineOpacity: [.15, .3, .55], glowOpacity: [.06, .1], plain: '#fc4c02',
+    explore: '#fc4c02', casing: '#0b0d10',
     before: 'sat-labels',
   },
 };
 
 // "Classic" heatmap: green (rarely) → yellow → orange → red (often)
-const HEAT_COLORS = ['interpolate', ['linear'], ['heatmap-density'],
-  0, 'rgba(0,0,0,0)',
-  .05, 'rgba(0,200,60,.6)',
-  .2, '#00c83c',
-  .4, '#8cff00',
-  .55, '#ffee00',
-  .7, '#ff9000',
-  .85, '#ff2a00',
-  1, '#d00000'];
+// Colours blend in Lab space (smoother than RGB) and red only shows at the very top.
+// Transparency is left to the "Layers opacity" setting so the colours stay saturated.
+const HEAT_COLORS = ['interpolate-lab', ['linear'], ['heatmap-density'],
+  0, 'rgba(0,200,60,0)',
+  .08, 'rgba(0,200,60,.55)',
+  .25, 'rgba(80,220,40,.8)',
+  .45, 'rgba(200,240,0,.9)',
+  .62, 'rgba(255,220,0,.92)',
+  .78, 'rgba(255,150,0,.94)',
+  .92, 'rgba(255,80,0,.95)',
+  1, 'rgba(220,20,0,.95)'];
 
 // "Diffuse" eye-tracking-style heatmap: large radius, halo blue → cyan → green → yellow → red
-const SOFT_COLORS = ['interpolate', ['linear'], ['heatmap-density'],
-  0, 'rgba(0,0,0,0)',
-  .03, 'rgba(40,40,255,.4)',
-  .15, 'rgba(20,60,255,.75)',
-  .3, 'rgba(0,220,255,.85)',
-  .5, 'rgba(40,255,0,.9)',
-  .7, 'rgba(255,240,0,.92)',
-  .85, 'rgba(255,120,0,.95)',
-  1, 'rgba(255,0,0,.95)'];
+const SOFT_COLORS = ['interpolate-lab', ['linear'], ['heatmap-density'],
+  0, 'rgba(40,60,255,0)',
+  .05, 'rgba(40,60,255,.4)',
+  .2, 'rgba(20,110,255,.7)',
+  .38, 'rgba(0,210,240,.82)',
+  .55, 'rgba(80,240,80,.88)',
+  .7, 'rgba(240,240,0,.9)',
+  .84, 'rgba(255,160,0,.93)',
+  .95, 'rgba(255,80,0,.95)',
+  1, 'rgba(240,30,0,.95)'];
 const softIntensity = () => {
   const k = heatMult(state.heatK);
-  return ['interpolate', ['linear'], ['zoom'], 8, .15 * k, 15, .5 * k];
+  return ['interpolate', ['linear'], ['zoom'], 8, .12 * k, 15, .4 * k];
 };
 
 // ---------- State (saved in the browser) ----------
@@ -343,30 +350,30 @@ const lineWidth = () => {
 };
 const glowWidth = () => {
   const k = lineMult(state.lineW);
-  return ['interpolate', ['linear'], ['zoom'], 8, 2 * k, 14, 8 * k];
+  return ['interpolate', ['linear'], ['zoom'], 8, 3 * k, 14, 12 * k, 18, 20 * k];
 };
 
-// colLines / colPlain: user-chosen color (null = basemap's default color)
-const state = { base: 'dark', lines: true, heat: false, soft: false, plain: false, explore: false, heatK: 50, lineW: 50, scale: 'global',
-  colLines: null, colPlain: null, colExplore: null, goal: 1000, stats: false,
+const state = { base: 'dark', lines: true, heat: false, soft: false, raw: false, plain: false, explore: false, heatK: 50, lineW: 50, layerOp: 100, mapOp: 100, scale: 'global',
+  goal: 1000, stats: false,
   yMin: 0, yMax: 9999, dFrom: null, dTo: null, zone: null, sources: new Set() };
-const lineColor = () => state.colLines || BASES[state.base].line;
-const glowColor = () => state.colLines || BASES[state.base].glow;
-const plainColor = () => state.colPlain || BASES[state.base].plain;
-const exploreColor = () => state.colExplore || EXPLORE_COLOR;
+// Colours come from the basemap palette, so they stay readable when switching basemaps
+const lineColor = () => BASES[state.base].line;
+const glowColor = () => BASES[state.base].glow;
+const plainColor = () => BASES[state.base].plain;
+const exploreColor = () => BASES[state.base].explore;
+const casingColor = () => BASES[state.base].casing;
 // slider 0–100 → intensity multiplier ×0.18 to ×5.7 (logarithmic scale, 50 = ×1)
 const heatMult = v => Math.pow(2, (v - 50) / 20);
 const heatIntensity = () => {
   const k = heatMult(state.heatK);
-  return ['interpolate', ['linear'], ['zoom'], 8, .3 * k, 15, 1.2 * k];
+  return ['interpolate', ['linear'], ['zoom'], 8, .25 * k, 15, 1 * k];
 };
 try { Object.assign(state, JSON.parse(localStorage.getItem('runmap') || '{}')); } catch (e) {}
 state.sources = new Set();
 if (!BASES[state.base]) state.base = 'dark';
 const save = () => {
   try { localStorage.setItem('runmap', JSON.stringify(
-    { base: state.base, lines: state.lines, heat: state.heat, soft: state.soft, plain: state.plain, explore: state.explore, heatK: state.heatK, lineW: state.lineW, scale: state.scale,
-      colLines: state.colLines, colPlain: state.colPlain, colExplore: state.colExplore,
+    { base: state.base, lines: state.lines, heat: state.heat, soft: state.soft, raw: state.raw, plain: state.plain, explore: state.explore, heatK: state.heatK, lineW: state.lineW, layerOp: state.layerOp, mapOp: state.mapOp, scale: state.scale,
       goal: state.goal, stats: state.stats })); } catch (e) {}
 };
 
@@ -377,7 +384,7 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
 
-let runs, linesGeo, pointsGeo, exploreGeo, zone, bars;
+let runs, linesGeo, pointsGeo, rawGeo, exploreGeo, zone, bars;
 let yearAnchor = null;  // last clicked year, anchor for shift + click
 
 // Densest area (~5 km grid) for the initial view
@@ -407,27 +414,40 @@ function addOverlay() {
   const before = b.before || map.getStyle().layers.find(l => l.type === 'symbol')?.id;
   map.addSource('runs', { type: 'geojson', data: linesGeo });
   map.addSource('pts', { type: 'geojson', data: pointsGeo });
+  map.addSource('ptsRaw', { type: 'geojson', data: rawGeo });
 
+  // Black veil between the basemap and our layers: its opacity follows "Map opacity"
+  map.addLayer({ id: 'veil', type: 'background',
+    paint: { 'background-color': '#000', 'background-opacity': 1 - state.mapOp / 100 } }, before);
   // Order: diffuse at the bottom, sharp heatmap, then tracks on top — all stack up
-  map.addLayer({ id: 'soft', type: 'heatmap', source: 'pts',
+  // Raw hotspots: same look as Hotspots, but built from the raw GPS points (to compare both methods)
+  map.addLayer({ id: 'raw', type: 'heatmap', source: 'ptsRaw',
     paint: {
-      'heatmap-weight': weight(.008),
+      'heatmap-weight': weight(RAW_W),
       'heatmap-intensity': softIntensity(),
       'heatmap-radius': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 12, 10, 25, 13, 45, 16, 90, 18, 140],
-      'heatmap-opacity': .9,
+      'heatmap-opacity': 1,
+      'heatmap-color': SOFT_COLORS,
+    } }, before);
+  map.addLayer({ id: 'soft', type: 'heatmap', source: 'pts',
+    paint: {
+      'heatmap-weight': weight(SOFT_W),
+      'heatmap-intensity': softIntensity(),
+      'heatmap-radius': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 12, 10, 25, 13, 45, 16, 90, 18, 140],
+      'heatmap-opacity': 1,
       'heatmap-color': SOFT_COLORS,
     } }, before);
   map.addLayer({ id: 'heat', type: 'heatmap', source: 'pts',
     paint: {
-      'heatmap-weight': weight(.06),
+      'heatmap-weight': weight(HEAT_W),
       'heatmap-intensity': heatIntensity(),
       'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 3, 13, 10, 16, 22],
-      'heatmap-opacity': .85,
+      'heatmap-opacity': 1,
       'heatmap-color': HEAT_COLORS,
     } }, before);
   map.addLayer({ id: 'glow', type: 'line', source: 'runs',
     layout: { 'line-join': 'round', 'line-cap': 'round' },
-    paint: { 'line-color': glowColor(), 'line-blur': 4,
+    paint: { 'line-color': glowColor(), 'line-blur': 8,
       'line-width': glowWidth(),
       'line-opacity': glowOpacity() } }, before);
   map.addLayer({ id: 'lines', type: 'line', source: 'runs',
@@ -445,7 +465,7 @@ function addOverlay() {
       'line-width': ['interpolate', ['linear'], ['zoom'], 8, 3, 14, 10] } }, before);
   // Dark casing under the dashes: the gaps stay dark even over the Routes layer
   map.addLayer({ id: 'ex-case', type: 'line', source: 'explore', layout: { 'line-join': 'round', 'line-cap': 'round' },
-    paint: { 'line-color': '#0b0d10', 'line-opacity': .85,
+    paint: { 'line-color': casingColor(), 'line-opacity': .85,
       'line-width': ['interpolate', ['linear'], ['zoom'], 8, 2.5, 14, 5, 18, 7] } }, before);
   // Dashed line: butt caps keep the dashes crisp (round caps would merge them)
   map.addLayer({ id: 'ex', type: 'line', source: 'explore', layout: { 'line-join': 'round', 'line-cap': 'butt' },
@@ -465,13 +485,15 @@ function addOverlay() {
 const byZone = () => state.scale === 'zone';
 const weight = base => byZone() ? ['*', base, ['get', 'w']] : base;
 const scaled = a => byZone() ? ['min', 1, ['*', a, ['get', 'w']]] : a;
+const layerOp = () => state.layerOp / 100;   // "Layers opacity" setting, 0.1–1
+const op = a => ['*', layerOp(), scaled(a)];
 function lineOpacity() {
   const o = BASES[state.base].lineOpacity;
-  return ['interpolate', ['linear'], ['zoom'], 8, scaled(o[0]), 14, scaled(o[1]), 18, scaled(o[2])];
+  return ['interpolate', ['linear'], ['zoom'], 8, op(o[0]), 14, op(o[1]), 18, op(o[2])];
 }
 function glowOpacity() {
   const o = BASES[state.base].glowOpacity;
-  return ['interpolate', ['linear'], ['zoom'], 8, scaled(o[0]), 14, scaled(o[1])];
+  return ['interpolate', ['linear'], ['zoom'], 8, op(o[0]), 14, op(o[1])];
 }
 
 function apply() {
@@ -480,7 +502,7 @@ function apply() {
   const f = ['all', ['>=', ['get', 'd'], dA], ['<=', ['get', 'd'], dB],
     ['in', ['get', 'src'], ['literal', [...state.sources]]]];
   if (map.getLayer('lines')) {
-    for (const id of ['glow', 'lines', 'heat', 'soft', 'plain', 'ex', 'ex-glow', 'ex-case']) map.setFilter(id, f);
+    for (const id of ['glow', 'lines', 'heat', 'soft', 'raw', 'plain', 'ex', 'ex-glow', 'ex-case']) map.setFilter(id, f);
     const vis = on => on ? 'visible' : 'none';
     map.setLayoutProperty('plain', 'visibility', vis(state.plain));
     map.setLayoutProperty('ex', 'visibility', vis(state.explore));
@@ -488,14 +510,24 @@ function apply() {
     map.setLayoutProperty('ex-case', 'visibility', vis(state.explore));
     map.setLayoutProperty('heat', 'visibility', vis(state.heat));
     map.setLayoutProperty('soft', 'visibility', vis(state.soft));
+    map.setLayoutProperty('raw', 'visibility', vis(state.raw));
     map.setLayoutProperty('lines', 'visibility', vis(state.lines));
     map.setLayoutProperty('glow', 'visibility', vis(state.lines));
     // When both are shown, thinner/subtler tracks so the heatmap stays readable
-    const both = state.lines && (state.heat || state.soft);
+    const both = state.lines && (state.heat || state.soft || state.raw);
     map.setPaintProperty('glow', 'line-opacity', both ? 0 : glowOpacity());
     map.setPaintProperty('lines', 'line-opacity', lineOpacity());
-    map.setPaintProperty('heat', 'heatmap-weight', weight(.06));
-    map.setPaintProperty('soft', 'heatmap-weight', weight(.008));
+    map.setPaintProperty('heat', 'heatmap-weight', weight(HEAT_W));
+    map.setPaintProperty('soft', 'heatmap-weight', weight(SOFT_W));
+    map.setPaintProperty('raw', 'heatmap-weight', weight(RAW_W));
+    // Opacity settings
+    const lo = layerOp();
+    for (const id of ['heat', 'soft', 'raw']) map.setPaintProperty(id, 'heatmap-opacity', lo);
+    map.setPaintProperty('plain', 'line-opacity', .95 * lo);
+    map.setPaintProperty('ex', 'line-opacity', lo);
+    map.setPaintProperty('ex-glow', 'line-opacity', .25 * lo);
+    map.setPaintProperty('ex-case', 'line-opacity', .85 * lo);
+    map.setPaintProperty('veil', 'background-opacity', 1 - state.mapOp / 100);
   }
   document.querySelectorAll('#scale button').forEach(x => x.classList.toggle('on', x.dataset.scale === state.scale));
   const sel = runs.filter(r => r.d >= dA && r.d <= dB && state.sources.has(r.src));
@@ -522,18 +554,20 @@ function apply() {
   document.getElementById('showLines').checked = state.lines;
   document.getElementById('showHeat').checked = state.heat;
   document.getElementById('heatK').value = state.heatK;
+  document.getElementById('layerOp').value = state.layerOp;
+  document.getElementById('layerOpVal').textContent = state.layerOp + '%';
+  document.getElementById('mapOp').value = state.mapOp;
+  document.getElementById('mapOpVal').textContent = state.mapOp + '%';
   document.getElementById('heatVal').textContent = '×' + heatMult(state.heatK).toFixed(1);
   document.getElementById('showSoft').checked = state.soft;
+  document.getElementById('showRaw').checked = state.raw;
   document.getElementById('lineW').value = state.lineW;
   document.getElementById('lineVal').textContent = '×' + lineMult(state.lineW).toFixed(1);
   document.getElementById('showPlain').checked = state.plain;
   document.getElementById('showExplore').checked = state.explore;
-  document.getElementById('colLines').value = lineColor();
-  document.getElementById('colPlain').value = plainColor();
-  document.getElementById('colExplore').value = exploreColor();
   document.documentElement.style.setProperty('--explore', exploreColor());   // Exploration gauge
   document.getElementById('lineCtl').classList.toggle('off', !state.lines && !state.plain);
-  document.getElementById('heatCtl').classList.toggle('off', !state.heat && !state.soft);
+  document.getElementById('heatCtl').classList.toggle('off', !state.heat && !state.soft && !state.raw);
   document.getElementById('goal').value = state.goal;
   document.querySelectorAll('#zones button').forEach(b => b.classList.toggle('on', +b.dataset.z === state.zone));
   // Stats: same filters as the map, + the selected place
@@ -593,15 +627,44 @@ fetch('runs.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
   for (const r of runs) for (const [si, a, b] of r.ex || [])
     exploreGeo.features.push({ type: 'Feature', properties: { year: r.year, d: r.d, src: r.src },
       geometry: { type: 'LineString', coordinates: r.segs[si].slice(a, b + 1) } });
-  // Heatmap points: each point takes the weight of the place it lies in (pz)
+  // Heatmap points. The simplified tracks keep many points in bends and pauses and very few
+  // on straight lines, which made blobs where we merely stopped. Instead, points are placed
+  // every HEAT_STEP_M metres along each track, and a run counts at most once per cell:
+  // the heat then measures how many runs went through a spot, not how many points were recorded.
+  // Each point takes the weight of the place it lies in (pz).
   const zoneW = (data.zones || []).map(z => z.w);
-  pointsGeo = { type: 'FeatureCollection', features: [] };
+  // Previous method, kept for the Raw hotspots layer: one heat point per recorded track point
+  rawGeo = { type: 'FeatureCollection', features: [] };
   for (const r of runs) r.segs.forEach((s, si) => s.forEach((c, pi) => {
     const zi = r.pz ? r.pz[si][pi] : r.z;
-    pointsGeo.features.push({ type: 'Feature',
+    rawGeo.features.push({ type: 'Feature',
       properties: { year: r.year, d: r.d, src: r.src, w: zoneW[zi] ?? r.w ?? 1 },
       geometry: { type: 'Point', coordinates: c } });
   }));
+  pointsGeo = { type: 'FeatureCollection', features: [] };
+  for (const r of runs) {
+    const seen = new Set();
+    r.segs.forEach((s, si) => {
+      const kx = 111320 * Math.cos(s[0][1] * Math.PI / 180), ky = 110540;
+      let carry = 0;                                    // distance left before the next point
+      for (let pi = 0; pi < s.length - 1; pi++) {
+        const [x1, y1] = s[pi], [x2, y2] = s[pi + 1];
+        const len = Math.hypot((x2 - x1) * kx, (y2 - y1) * ky);
+        for (let dist = carry; dist < len; dist += HEAT_STEP_M) {
+          const t = dist / len, x = x1 + (x2 - x1) * t, y = y1 + (y2 - y1) * t;
+          const cell = Math.round(x * kx / HEAT_STEP_M) + ',' + Math.round(y * ky / HEAT_STEP_M);
+          if (seen.has(cell)) continue;                 // same run, same spot: count once
+          seen.add(cell);
+          const zi = r.pz ? r.pz[si][pi] : r.z;
+          pointsGeo.features.push({ type: 'Feature',
+            properties: { year: r.year, d: r.d, src: r.src, w: zoneW[zi] ?? r.w ?? 1 },
+            geometry: { type: 'Point', coordinates: [x, y] } });
+        }
+        carry = (carry - len) % HEAT_STEP_M;
+        if (carry < 0) carry += HEAT_STEP_M;
+      }
+    });
+  }
 
   // Histogram by year
   const perYear = {}, kmYear = {};
@@ -728,23 +791,10 @@ document.querySelectorAll('#base button').forEach(b => b.onclick = () => {
 });
 document.getElementById('showLines').onchange = e => { state.lines = e.target.checked; save(); apply(); };
 document.getElementById('showHeat').onchange = e => { state.heat = e.target.checked; save(); apply(); };
-function applyColors() {
-  if (map.getLayer('lines')) {
-    map.setPaintProperty('lines', 'line-color', lineColor());
-    map.setPaintProperty('glow', 'line-color', glowColor());
-    map.setPaintProperty('plain', 'line-color', plainColor());
-    map.setPaintProperty('ex', 'line-color', exploreColor());
-    map.setPaintProperty('ex-glow', 'line-color', exploreColor());
-  }
-  save(); apply();
-}
-document.getElementById('colLines').oninput = e => { state.colLines = e.target.value; applyColors(); };
-document.getElementById('colPlain').oninput = e => { state.colPlain = e.target.value; applyColors(); };
-document.getElementById('colExplore').oninput = e => { state.colExplore = e.target.value; applyColors(); };
-document.getElementById('colReset').onclick = () => { state.colLines = state.colPlain = state.colExplore = null; applyColors(); };
 document.getElementById('showPlain').onchange = e => { state.plain = e.target.checked; save(); apply(); };
 document.getElementById('showExplore').onchange = e => { state.explore = e.target.checked; save(); apply(); };
 document.getElementById('showSoft').onchange = e => { state.soft = e.target.checked; save(); apply(); };
+document.getElementById('showRaw').onchange = e => { state.raw = e.target.checked; save(); apply(); };
 document.querySelectorAll('#scale button').forEach(b => b.onclick = () => {
   state.scale = b.dataset.scale; save(); apply();
 });
@@ -757,11 +807,14 @@ document.getElementById('lineW').oninput = e => {
   }
   apply(); save();
 };
+document.getElementById('layerOp').oninput = e => { state.layerOp = +e.target.value; apply(); save(); };
+document.getElementById('mapOp').oninput = e => { state.mapOp = +e.target.value; apply(); save(); };
 document.getElementById('heatK').oninput = e => {
   state.heatK = +e.target.value;
   if (map.getLayer('heat')) {
     map.setPaintProperty('heat', 'heatmap-intensity', heatIntensity());
     map.setPaintProperty('soft', 'heatmap-intensity', softIntensity());
+    map.setPaintProperty('raw', 'heatmap-intensity', softIntensity());
   }
   apply(); save();
 };
