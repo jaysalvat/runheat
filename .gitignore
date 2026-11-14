@@ -1,0 +1,8 @@
+.env
+data/
+__pycache__/
+*.log
+web/runs.json
+
+.claude
+CLAUDE.md
