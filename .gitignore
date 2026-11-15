@@ -5,5 +5,6 @@ __pycache__/
 
 .claude
 CLAUDE.md
-web/_fixtures/
 tools/
+node_modules/
+dist/

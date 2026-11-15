@@ -1,0 +1,41 @@
+/* Shared styles: colour tokens, page, floating panels, buttons, section labels.
+   Everything specific to a component lives in that component. */
+:root {
+  --bg: #0b0d10; --panel: rgba(16,19,24,.88); --text: #e8eaed; --muted: #8b939e;
+  --line: #2a3038; --accent: #ff6a2b; --on-accent: #111; --chip: #1a1f26;
+  --panel-border: rgba(255,255,255,.16);
+  /* thick multi-layer shadow: crisp contact + wide, soft halo */
+  --shadow: 0 2px 4px rgba(0,0,0,.35), 0 12px 24px rgba(0,0,0,.45), 0 30px 70px rgba(0,0,0,.6);
+  /* chart shades (derived from the interface colour when it's changed) */
+  --g1: #b3441a; --g2: #ff6a2b; --g3: #ffb38a;
+  --g0: #4a2414;   /* lowest calendar value, still distinct from an empty cell */
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
+
+/* Floating panels over the map (side panel, settings, import, stats) */
+.floating { position: absolute; z-index: 2; padding: 18px; max-height: calc(100% - 32px); overflow: auto;
+  background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--panel-border);
+  border-radius: 12px; box-shadow: var(--shadow); }
+.floating h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; letter-spacing: .02em;
+  display: flex; align-items: center; justify-content: space-between; }
+/* Popups next to the side panel */
+.popup { top: 16px; left: 372px; width: 320px; z-index: 3; }
+@media (max-width: 600px) { .popup { left: 16px; right: 16px; width: auto; } }
+
+/* Section label: title on the left, value on the right */
+.label { color: var(--muted); font-size: 12px; margin: 14px 0 6px; display: flex; justify-content: space-between; }
+.row { display: flex; gap: 6px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+.btn { width: 100%; margin-top: 14px; padding: 8px; background: var(--chip); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font: inherit; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn.danger:hover:not(:disabled) { border-color: #ff6b5e; color: #ff8a80; }
+.btn.danger.armed { background: #5a1d17; border-color: #ff6b5e; color: #fff; }
+.link-btn { display: block; margin: 8px auto 0; padding: 2px 6px; background: none; border: 0; color: var(--muted);
+  font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.link-btn:hover { color: var(--text); }

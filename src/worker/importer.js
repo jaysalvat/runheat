@@ -3,13 +3,15 @@
 // Everything runs in the browser: no file or coordinate is sent anywhere.
 //
 // Messages in:
-//   { type: 'import', files: File[], runs: run[] }  existing runs (for duplicates + rebuild)
-//   { type: 'build', runs: run[] }                   rebuild only
+//   { type: 'import', files: File[], runs: run[], placesUrl }  existing runs (duplicates + rebuild)
+//   { type: 'build', runs: run[], placesUrl }                   rebuild only
 // Messages out:
 //   { type: 'progress', text, done, total }
 //   { type: 'done', added: run[], data: { runs, zones }, report }
 //   { type: 'error', message }
-importScripts('https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js');
+import * as fflate from 'fflate';
+
+let placesUrl = 'places.tsv';   // sent by the page (depends on where the site is served)
 
 // ---------- Constants ----------
 const MAX_JUMP_M = 300;          // > 300 m between two points: signal loss, split the track
@@ -75,7 +77,7 @@ let places = null;   // { grid: Map("lon,lat" 1° cell → [[lon, lat, name, cc,
 async function loadPlaces() {
   if (places) return places;
   post({ type: 'progress', text: 'Loading place names…' });
-  const res = await fetch('places.tsv');
+  const res = await fetch(placesUrl);
   if (!res.ok) throw new Error('places.tsv not found');
   const lines = (await res.text()).split('\n');
   const tzs = lines[0].split('\t');
@@ -633,6 +635,7 @@ async function build(runs) {
 function post(msg) { self.postMessage(msg); }
 
 self.onmessage = async ({ data: msg }) => {
+  if (msg.placesUrl) placesUrl = msg.placesUrl;
   try {
     if (msg.type === 'import') {
       const { added, report } = await importFiles(msg.files, msg.runs);

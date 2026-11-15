@@ -7,7 +7,7 @@
 //              imported runs or the build version change
 // Demo mode (localStorage 'runmap-demo'): shows demo.json instead. Also used as long as
 // nothing has been imported (first visit).
-const RunData = (() => {
+export const RunData = (() => {
   const BUILD_VERSION = 3;   // bump when the derived data format changes
   const KEEP = ['id', 'date', 'src', 'sp', 'km', 'segs', 't', 'ts', 'dur', 'dp', 'b5', 'b10'];
   const bare = r => {
@@ -38,20 +38,20 @@ const RunData = (() => {
 
   function work(msg, onProgress) {
     return new Promise((ok, ko) => {
-      const w = new Worker('importer.js');
+      const w = new Worker(new URL('../worker/importer.js', import.meta.url), { type: 'module' });
       w.onmessage = ({ data }) => {
         if (data.type === 'progress') return onProgress && onProgress(data);
         w.terminate();
         data.type === 'error' ? ko(new Error(data.message)) : ok(data);
       };
       w.onerror = e => { w.terminate(); ko(new Error(e.message || 'Worker error')); };
-      w.postMessage(msg);
+      w.postMessage({ ...msg, placesUrl: new URL('places.tsv', document.baseURI).href });
     });
   }
   const allRuns = () => imported.map(bare);
 
   const fetchJson = async url => {
-    try { const res = await fetch(url, { cache: 'no-cache' }); return res.ok ? await res.json() : null; }
+    try { const res = await fetch(new URL(url, document.baseURI), { cache: 'no-cache' }); return res.ok ? await res.json() : null; }
     catch (e) { return null; }
   };
   const DEMO_KEY = 'runmap-demo';
