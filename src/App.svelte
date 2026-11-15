@@ -9,6 +9,7 @@
   import StatsDrawer from './components/stats/StatsDrawer.svelte';
   import ChartTip from './components/stats/ChartTip.svelte';
   import Toast from './components/Toast.svelte';
+  import HoverTip from './components/HoverTip.svelte';
 
   onMount(() => { app.load(); });
 
@@ -26,6 +27,7 @@
 {#if app.settings.stats && app.runs.length}<StatsDrawer />{/if}
 <ChartTip />
 <Toast />
+<HoverTip />
 {#if app.busy}<div class="busy">{app.busy}</div>{/if}
 
 <style>
