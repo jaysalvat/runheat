@@ -1,7 +1,7 @@
 <script>
   // Settings popup: non-modal, the map stays visible and updates live
   import { app } from '../lib/app.svelte.js';
-  import { COLOR_GROUP, DEFAULT_COLORS, DEFAULT_ACCENT } from '../lib/config.js';
+  import { BASES, COLOR_GROUP, DEFAULT_COLORS, DEFAULT_ACCENT } from '../lib/config.js';
   import { plural } from '../lib/format.js';
   import { RunData } from '../lib/data.js';
   import IconButton from './ui/IconButton.svelte';
@@ -13,7 +13,7 @@
   const s = app.settings;
   const mult = (v, d) => '×' + Math.pow(2, (v - 50) / d).toFixed(1);
   const group = $derived(COLOR_GROUP[s.base]);
-  const TRACKS = [['dark', 'Dark'], ['map', 'Streets & Terrain'], ['sat', 'Satellite']];
+  const TRACKS = [['dark', 'Dark'], ['map', 'Streets'], ['sat', 'Satellite']];
 
   // Demo data on / off
   async function setDemo(on) {
@@ -62,6 +62,14 @@
   <Slider label="Layers opacity" bind:value={s.layerOp} min={10} display="{s.layerOp}%" />
   <Slider label="Map opacity" bind:value={s.mapOp} display="{s.mapOp}%" title="Fades the basemap to black so your runs stand out" />
 
+  <div class="label"><span>Relief</span><span class="hint">{BASES[s.base].label} map</span></div>
+  <div class="row">
+    <Toggle bind:checked={s.relief[s.base]} label="Hillshade" disabled={s.base === 'satellite'}
+      title={s.base === 'satellite' ? 'The photo already shows the relief' : 'Shades the slopes'} />
+    <Toggle bind:checked={s.contours[s.base]} label="Contours"
+      title="Contour lines, with elevation labels when zoomed in" />
+  </div>
+
   <div class="label"><span>Yearly goal</span></div>
   <label class="goal">
     <input type="number" min="50" max="10000" step="50" value={s.goal}
@@ -86,4 +94,6 @@
     border-radius: 8px; font: inherit; outline: none; }
   .goal input:focus { border-color: var(--accent); }
   .remove { margin-top: 6px; }
+  .row { display: flex; gap: 4px; }
+  .hint { color: var(--muted); font-weight: 400; }
 </style>

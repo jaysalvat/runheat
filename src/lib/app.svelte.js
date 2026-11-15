@@ -6,12 +6,16 @@ import { ymd } from './format.js';
 import { buildGeo, mainArea } from './geo.js';
 import { RunData } from './data.js';
 
+const DEFAULT_RELIEF = Object.fromEntries(Object.keys(BASES).map(b => [b, false]));
+
 const STORAGE_KEY = 'runmap';
 const DEFAULT_SETTINGS = {
   base: 'dark',
   // layers
   plain: false, lines: true, heat: false, soft: false, raw: false, explore: false,
   heatK: 50, lineW: 50, layerOp: 100, mapOp: 100, scale: 'global',
+  // hillshade and contour lines, per basemap
+  relief: { ...DEFAULT_RELIEF }, contours: { ...DEFAULT_RELIEF },
   goal: 1000, stats: false,
   colors: { ...DEFAULT_COLORS }, accent: DEFAULT_ACCENT,
 };
@@ -19,7 +23,11 @@ const DEFAULT_SETTINGS = {
 function loadSettings() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { /* private mode */ }
-  const s = { ...DEFAULT_SETTINGS, ...saved, colors: { ...DEFAULT_COLORS, ...(saved.colors || {}) } };
+  const obj = v => (v && typeof v === 'object' ? v : {});   // older saves had booleans
+  const s = { ...DEFAULT_SETTINGS, ...saved, colors: { ...DEFAULT_COLORS, ...obj(saved.colors) },
+    relief: { ...DEFAULT_RELIEF, ...obj(saved.relief) }, contours: { ...DEFAULT_RELIEF, ...obj(saved.contours) } };
+  // the old Terrain basemap is now Streets with hillshade and contours
+  if (s.base === 'topo') { s.base = 'standard'; s.relief.standard = s.contours.standard = true; }
   if (!BASES[s.base]) s.base = 'dark';
   for (const k of Object.keys(s)) if (!(k in DEFAULT_SETTINGS)) delete s[k];   // old keys
   return s;

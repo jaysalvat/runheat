@@ -9,59 +9,52 @@ export const HEAT_W = .02, SOFT_W = .005;
 export const RAW_W = .008;   // Raw hotspots: weight tuned for the raw GPS points (one every ~60 m on average)
 
 const SAT_ATTR = 'Imagery © Esri, Maxar, Earthstar Geographics';
-function rasterStyle(url, attribution, maxzoom) {
-  return { version: 8,
-    sources: { base: { type: 'raster', tileSize: 256, maxzoom, attribution, tiles: [url] } },
-    layers: [{ id: 'base', type: 'raster', source: 'base' }] };
-}
+// Satellite tiles are 256 px images. On a HiDPI screen, declaring them 128 px makes MapLibre load
+// the next zoom level: twice the detail, the photo is no longer stretched ×2.
+// globalThis: this file is also imported by the worker, which has no devicePixelRatio.
+const RASTER_TILE = (globalThis.devicePixelRatio || 1) > 1 ? 128 : 256;
 
+const DARK_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+const VOYAGER_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+
+// style: URL or object; transform (optional): MapLibre transformStyle, to rework a fetched style
 export const BASES = {
   dark: {
     label: 'Dark',
-    style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    style: DARK_STYLE,
     // one colour for every layer (Density's); Density stands out by its halo
     line: '#ffb38a', glow: '#ff6a2b', lineOpacity: [.06, .12, .3], glowOpacity: [.05, .08], casing: '#0b0d10',
   },
-  // Classic OSM map ("OSM Carto" style, the most colorful). Personal use only:
-  // the tile.openstreetmap.org policy forbids heavy/public use.
+  // CARTO Voyager: colourful vector street map (free, no key, same provider as Dark)
   standard: {
     label: 'Streets',
-    style: rasterStyle('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', 19),
+    style: VOYAGER_STYLE,
     // Strava-like bright orange on every layer; white casing under the dashes
     line: '#fc4c02', glow: '#fc4c02', lineOpacity: [.15, .3, .55], glowOpacity: [.04, .07], casing: '#ffffff',
   },
-  // Terrain: contour lines + hillshading, handy for trail running
-  topo: {
-    label: 'Terrain',
-    style: rasterStyle('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-      'Tiles © Esri — Esri, HERE, Garmin, USGS, OpenStreetMap', 19),
-    line: '#fc4c02', glow: '#fc4c02', lineOpacity: [.15, .3, .55], glowOpacity: [.04, .07], casing: '#ffffff',
-  },
+  // Esri imagery + the vector labels of Dark Matter (crisp text at any zoom, no key needed)
   satellite: {
     label: 'Satellite',
-    style: {
-      version: 8,
-      glyphs: 'https://basemaps.cartocdn.com/fonts/{fontstack}/{range}.pbf',
-      sources: {
-        sat: { type: 'raster', tileSize: 256, maxzoom: 19, attribution: SAT_ATTR,
-          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'] },
-        labels: { type: 'raster', tileSize: 256, maxzoom: 19,
-          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'] },
-      },
+    style: DARK_STYLE,
+    transform: (_prev, next) => ({
+      ...next,
+      sources: { ...next.sources,
+        sat: { type: 'raster', tileSize: RASTER_TILE, maxzoom: 19, attribution: SAT_ATTR,
+          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'] } },
       layers: [
         { id: 'sat', type: 'raster', source: 'sat' },
-        { id: 'sat-labels', type: 'raster', source: 'labels', paint: { 'raster-opacity': .85 } },
+        // white text, dark halo: readable over any photo
+        ...next.layers.filter(l => l.type === 'symbol' && l.id !== 'housenumber').map(l => ({ ...l,
+          paint: { ...l.paint, 'text-color': 'rgba(255,255,255,.92)', 'text-halo-color': 'rgba(0,0,0,.75)', 'text-halo-width': 1.2 } })),
       ],
-    },
+    }),
     // Strava-like bright orange, dark casing under the dashes
     line: '#fc4c02', glow: '#fc4c02', lineOpacity: [.15, .3, .55], glowOpacity: [.06, .1], casing: '#0b0d10',
-    before: 'sat-labels',
   },
 };
 
 // Track colour: one per basemap family, editable in Settings
-export const COLOR_GROUP = { dark: 'dark', standard: 'map', topo: 'map', satellite: 'sat' };
+export const COLOR_GROUP = { dark: 'dark', standard: 'map', satellite: 'sat' };
 export const DEFAULT_COLORS = { dark: BASES.dark.line, map: BASES.standard.line, sat: BASES.satellite.line };
 export const DEFAULT_ACCENT = '#ff6a2b';
 

@@ -7,10 +7,12 @@
   import { BASES, COLOR_GROUP, DEFAULT_COLORS, HEAT_COLORS, SOFT_COLORS, HEAT_W, SOFT_W, RAW_W } from '../lib/config.js';
   import { deeper } from '../lib/colors.js';
   import { mapCtl, freePadding } from '../lib/mapctl.js';
+  import { addRelief, SHADE_LAYERS, CONTOUR_LAYERS } from '../lib/relief.js';
 
   let container;
   let map;
   let ready = $state(0);   // +1 each time our layers are (re)created on a style
+  let reliefReady = $state(0);   // same for the relief layers
   let styleReady = false;  // the basemap style has loaded (isStyleLoaded() is false while tiles load)
 
   const s = app.settings;
@@ -46,7 +48,7 @@
   function addOverlay() {
     if (!map || map.getSource('runs') || !app.geo) return;
     const b = BASES[s.base];
-    const before = b.before || map.getStyle().layers.find(l => l.type === 'symbol')?.id;
+    const before = map.getStyle().layers.find(l => l.type === 'symbol')?.id;
     const g = app.geo;
     map.addSource('runs', { type: 'geojson', data: g.lines });
     map.addSource('pts', { type: 'geojson', data: g.points });
@@ -93,11 +95,11 @@
   }
 
   onMount(() => {
-    map = new maplibregl.Map({ container, style: BASES[s.base].style, center: [2.35, 48.85], zoom: 4,
-      attributionControl: { compact: true } });
+    map = new maplibregl.Map({ container, center: [2.35, 48.85], zoom: 4, attributionControl: { compact: true } });
+    setBase(s.base);
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
-    map.on('style.load', () => { styleReady = true; addOverlay(); });
+    map.on('style.load', () => { styleReady = true; addRelief(map, s.base); reliefReady++; addOverlay(); });
     mapCtl.map = map;
     return () => { map.remove(); mapCtl.map = null; };
   });
@@ -109,8 +111,13 @@
     if (!map || base === shownBase) return;
     shownBase = base;
     styleReady = false;
-    map.setStyle(BASES[base].style, { diff: false });
+    setBase(base);
   });
+
+  function setBase(base) {
+    const b = BASES[base];
+    map.setStyle(b.style, { diff: false, ...(b.transform && { transformStyle: b.transform }) });
+  }
 
   // New dataset: update the sources (or create the layers) and show the main area
   let shownVersion = 0;
@@ -157,6 +164,14 @@
     map.setPaintProperty('veil', 'background-opacity', 1 - s.mapOp / 100);
     for (const id of ['lines', 'plain', 'ex', 'ex-glow']) map.setPaintProperty(id, 'line-color', trackColor());
     map.setPaintProperty('glow', 'line-color', glowColor());
+  });
+
+  // Relief: hillshade and contours, set per basemap
+  $effect(() => {
+    if (!reliefReady) return;
+    const vis = (ids, on) => ids.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'));
+    vis(SHADE_LAYERS, s.relief[s.base]);
+    vis(CONTOUR_LAYERS, s.contours[s.base]);
   });
 
   // Line width and heat intensity sliders
