@@ -3,16 +3,39 @@ import { HEAT_STEP_M } from './config.js';
 
 const props = r => ({ year: r.year, d: r.d, src: r.src, sp: r.sp });
 
+// Rounded corners for display. The tracks are simplified (Douglas-Peucker, 4 m), which leaves
+// a sharp angle at every kept point. Chaikin's corner cutting, twice: each corner is replaced by
+// two points cut a quarter of the way along its segments, but at most SMOOTH_CUT_M metres
+// so long straight stretches stay put. Nearly straight corners are left alone (fewer points).
+const SMOOTH_CUT_M = 6, SMOOTH_MIN_TURN = .06;   // radians, ~3.5°
+function chaikin(s) {
+  if (s.length < 3) return s;
+  const kx = 111320 * Math.cos(s[0][1] * Math.PI / 180), ky = 110540;
+  const out = [s[0]];
+  for (let i = 1; i < s.length - 1; i++) {
+    const [ax, ay] = s[i - 1], [bx, by] = s[i], [cx, cy] = s[i + 1];
+    const ux = (bx - ax) * kx, uy = (by - ay) * ky, vx = (cx - bx) * kx, vy = (cy - by) * ky;
+    const l1 = Math.hypot(ux, uy), l2 = Math.hypot(vx, vy);
+    const turn = l1 && l2 ? Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / (l1 * l2)))) : 0;
+    if (turn < SMOOTH_MIN_TURN) { out.push(s[i]); continue; }
+    const t1 = Math.min(.25, SMOOTH_CUT_M / l1), t2 = Math.min(.25, SMOOTH_CUT_M / l2);
+    out.push([bx + (ax - bx) * t1, by + (ay - by) * t1], [bx + (cx - bx) * t2, by + (cy - by) * t2]);
+  }
+  out.push(s[s.length - 1]);
+  return out;
+}
+export const smooth = s => chaikin(chaikin(s));
+
 export function buildGeo(runs, zones) {
   const lines = { type: 'FeatureCollection', features: runs.map(r => ({
     type: 'Feature', properties: { ...props(r), km: r.km, w: r.w || 1 },
-    geometry: { type: 'MultiLineString', coordinates: r.segs } })) };
+    geometry: { type: 'MultiLineString', coordinates: r.segs.map(smooth) } })) };
 
   // New paths: stretches run for the first time (computed by the importer)
   const explore = { type: 'FeatureCollection', features: [] };
   for (const r of runs) for (const [si, a, b] of r.ex || [])
     explore.features.push({ type: 'Feature', properties: props(r),
-      geometry: { type: 'LineString', coordinates: r.segs[si].slice(a, b + 1) } });
+      geometry: { type: 'LineString', coordinates: smooth(r.segs[si].slice(a, b + 1)) } });
 
   // Each heat point takes the weight of the place it lies in (pz)
   const zoneW = zones.map(z => z.w);

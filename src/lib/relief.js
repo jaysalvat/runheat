@@ -31,6 +31,15 @@ const FONT = ['Montserrat Medium', 'Open Sans Regular', 'Noto Sans Regular'];
 export const SHADE_LAYERS = ['relief-shade'];
 export const CONTOUR_LAYERS = ['contours', 'contours-major', 'contour-labels'];
 
+// Where the basemap's labels start: the layer after the last non-label one. (The first symbol
+// layer is not enough: CARTO styles have a waterway label below the roads.)
+export function labelsAnchor(map) {
+  const layers = map.getStyle().layers;
+  let i = layers.length;
+  while (i > 0 && layers[i - 1].type === 'symbol') i--;
+  return layers[i]?.id;
+}
+
 // Adds the relief sources and layers to the current style (hidden; MapView sets visibility).
 // Hillshade and contours go above land and parks but under water, roads and buildings
 // (first line layer of the style); labels go with the basemap's other labels.
@@ -38,8 +47,8 @@ export function addRelief(map, base) {
   const look = RELIEF_LOOK[base];
   const src = demSource();
   const layers = map.getStyle().layers;
-  const under = layers.find(l => l.type === 'line')?.id || layers.find(l => l.type === 'symbol')?.id;
-  const labelsAt = layers.find(l => l.type === 'symbol')?.id;
+  const labelsAt = labelsAnchor(map);
+  const under = layers.find(l => l.type === 'line')?.id || labelsAt;
   const hidden = { visibility: 'none' };
 
   map.addSource('dem', { type: 'raster-dem', encoding: 'terrarium', tiles: [src.sharedDemProtocolUrl],
@@ -59,7 +68,7 @@ export function addRelief(map, base) {
   map.addLayer(contour('contours-major', ['>', ['get', 'level'], 0], look.major,
     ['interpolate', ['linear'], ['zoom'], 11, .7, 15, 1.4]), under);
   map.addLayer({ id: 'contour-labels', type: 'symbol', source: 'contour-src', 'source-layer': 'contours',
-    filter: ['>', ['get', 'level'], 0], minzoom: 12,
+    filter: ['all', ['>', ['get', 'level'], 0], ['>', ['get', 'ele'], 0]], minzoom: 12,   // no "0 m" along the coast
     layout: { ...hidden, 'symbol-placement': 'line', 'text-field': ['concat', ['to-string', ['get', 'ele']], ' m'],
       'text-font': FONT, 'text-size': 10, 'text-max-angle': 25, 'symbol-spacing': 350 },
     paint: { 'text-color': look.text, 'text-halo-color': look.halo, 'text-halo-width': 1.2 } }, labelsAt);

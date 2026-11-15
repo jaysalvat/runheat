@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS = {
   heatK: 50, lineW: 50, layerOp: 100, mapOp: 100, scale: 'global',
   // hillshade and contour lines, per basemap
   relief: { ...DEFAULT_RELIEF }, contours: { ...DEFAULT_RELIEF },
+  outline: 'tint',   // Routes outline: 'dark' | 'tint' | 'none'
   goal: 1000, stats: false,
   colors: { ...DEFAULT_COLORS }, accent: DEFAULT_ACCENT,
 };

@@ -5,9 +5,10 @@
   import { onMount } from 'svelte';
   import { app } from '../lib/app.svelte.js';
   import { BASES, COLOR_GROUP, DEFAULT_COLORS, HEAT_COLORS, SOFT_COLORS, HEAT_W, SOFT_W, RAW_W } from '../lib/config.js';
-  import { deeper } from '../lib/colors.js';
+  import { deeper, mix } from '../lib/colors.js';
+  import { smooth } from '../lib/geo.js';
   import { mapCtl, freePadding } from '../lib/mapctl.js';
-  import { addRelief, SHADE_LAYERS, CONTOUR_LAYERS } from '../lib/relief.js';
+  import { addRelief, labelsAnchor, SHADE_LAYERS, CONTOUR_LAYERS } from '../lib/relief.js';
 
   let container;
   let map;
@@ -22,6 +23,10 @@
   const lineMult = v => Math.pow(2, (v - 50) / 25);
   const heatMult = v => Math.pow(2, (v - 50) / 20);
   const lineWidth = () => { const k = lineMult(s.lineW); return ['interpolate', ['linear'], ['zoom'], 8, .5 * k, 14, 1.6 * k, 18, 3 * k]; };
+  // Routes: thicker, with an outline 1–3 px wider on each side (none: same width, hidden)
+  const ROUTE_W = [[8, 1.2], [14, 3], [18, 5]], OUTLINE_W = [1, 2, 3];
+  const routeWidth = (pad = 0) => { const k = lineMult(s.lineW);
+    return ['interpolate', ['linear'], ['zoom'], ...ROUTE_W.flatMap(([z, w], i) => [z, w * k + pad * OUTLINE_W[i] * 2])]; };
   const glowWidth = () => { const k = lineMult(s.lineW); return ['interpolate', ['linear'], ['zoom'], 8, 3 * k, 14, 12 * k, 18, 20 * k]; };
   const heatIntensity = () => { const k = heatMult(s.heatK); return ['interpolate', ['linear'], ['zoom'], 8, .25 * k, 15, 1 * k]; };
   const softIntensity = () => { const k = heatMult(s.heatK); return ['interpolate', ['linear'], ['zoom'], 8, .12 * k, 15, .4 * k]; };
@@ -42,13 +47,26 @@
     if (s.base !== 'dark') return c;
     return c.toLowerCase() === DEFAULT_COLORS.dark ? BASES.dark.glow : deeper(c);
   }
+  // Outline: black (or the basemap's dark casing), or a darker shade of the track colour
+  const outlineColor = () => (s.outline === 'tint' ? mix(trackColor(), '#000000', .2) : '#000000');
+  const outlineOpacity = () => (s.outline === 'none' ? 0 : s.outline === 'tint' ? .9 : .85);
   const empty = { type: 'FeatureCollection', features: [] };
+
+  // Chevron pointing along the line (east = direction of travel), drawn once as an SDF icon
+  function chevron() {
+    const n = 28, c = document.createElement('canvas');
+    c.width = c.height = n;
+    const g = c.getContext('2d');
+    g.strokeStyle = '#000'; g.lineWidth = 5; g.lineCap = 'round'; g.lineJoin = 'round';
+    g.beginPath(); g.moveTo(10, 6); g.lineTo(18, 14); g.lineTo(10, 22); g.stroke();
+    return g.getImageData(0, 0, n, n);
+  }
 
   // (Re)creates sources + layers: on load and after every basemap change
   function addOverlay() {
     if (!map || map.getSource('runs') || !app.geo) return;
     const b = BASES[s.base];
-    const before = map.getStyle().layers.find(l => l.type === 'symbol')?.id;
+    const before = labelsAnchor(map);   // our layers go above roads and buildings, under the labels
     const g = app.geo;
     map.addSource('runs', { type: 'geojson', data: g.lines });
     map.addSource('pts', { type: 'geojson', data: g.points });
@@ -74,8 +92,11 @@
       { id: 'lines', type: 'line', source: 'runs', layout: round, paint: { 'line-color': trackColor(),
         'line-width': lineWidth(), 'line-opacity': lineOpacity() } },
       // Routes: uniform opaque line, a path run once = a path run 300 times
+      // all outlines first, then all the lines: crossing routes merge into one outlined network
+      { id: 'plain-case', type: 'line', source: 'runs', layout: round, paint: { 'line-color': outlineColor(),
+        'line-width': routeWidth(1), 'line-opacity': outlineOpacity() } },
       { id: 'plain', type: 'line', source: 'runs', layout: round, paint: { 'line-color': trackColor(),
-        'line-width': lineWidth(), 'line-opacity': .95 } },
+        'line-width': routeWidth(), 'line-opacity': 1 } },
       { id: 'ex-glow', type: 'line', source: 'explore', layout: round, paint: { 'line-color': trackColor(),
         'line-blur': 5, 'line-opacity': .25, 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 3, 14, 10] } },
       // Casing under the dashes: the gaps stay visible even over the Routes layer
@@ -88,9 +109,17 @@
     ];
     for (const l of layers) map.addLayer(l, before);
     // Highlighted run: always on top
-    map.addLayer({ id: 'hl-glow', type: 'line', source: 'hl', layout: round,
-      paint: { 'line-color': '#ffd86f', 'line-width': 12, 'line-blur': 6, 'line-opacity': .6 } });
+    // On Dark a soft golden glow; on light maps and photos a crisp dark casing instead
+    map.addLayer({ id: 'hl-glow', type: 'line', source: 'hl', layout: round, paint: b.hlGlow
+      ? { 'line-color': b.hlGlow, 'line-width': 12, 'line-blur': 6, 'line-opacity': .6 }
+      : { 'line-color': '#16181c', 'line-width': 7, 'line-opacity': .9 } });
     map.addLayer({ id: 'hl', type: 'line', source: 'hl', layout: round, paint: { 'line-color': '#fff', 'line-width': 3 } });
+    // Direction of the run: chevrons along the selected run only (never on the whole set)
+    if (!map.hasImage('chevron')) map.addImage('chevron', chevron(), { sdf: true, pixelRatio: 2 });
+    map.addLayer({ id: 'hl-arrows', type: 'symbol', source: 'hl', layout: { 'symbol-placement': 'line',
+      'symbol-spacing': 90, 'icon-image': 'chevron', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+      'icon-rotation-alignment': 'map', 'icon-size': ['interpolate', ['linear'], ['zoom'], 12, .7, 16, 1] },
+      paint: { 'icon-color': mix(trackColor(), '#000000', .2), 'icon-halo-color': '#fff', 'icon-halo-width': 1.5 } });
     ready++;
   }
 
@@ -140,9 +169,9 @@
     const [dA, dB] = app.range;
     const f = ['all', ['>=', ['get', 'd'], dA], ['<=', ['get', 'd'], dB],
       ['in', ['get', 'src'], ['literal', [...app.sources]]], ['in', ['get', 'sp'], ['literal', [...app.sports]]]];
-    for (const id of ['glow', 'lines', 'heat', 'soft', 'raw', 'plain', 'ex', 'ex-glow', 'ex-case']) map.setFilter(id, f);
+    for (const id of ['glow', 'lines', 'heat', 'soft', 'raw', 'plain-case', 'plain', 'ex', 'ex-glow', 'ex-case']) map.setFilter(id, f);
     const vis = (ids, on) => ids.forEach(id => map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'));
-    vis(['plain'], s.plain);
+    vis(['plain-case', 'plain'], s.plain);
     vis(['ex', 'ex-glow', 'ex-case'], s.explore);
     vis(['heat'], s.heat);
     vis(['soft'], s.soft);
@@ -157,12 +186,15 @@
     map.setPaintProperty('raw', 'heatmap-weight', weight(RAW_W));
     const lo = s.layerOp / 100;
     for (const id of ['heat', 'soft', 'raw']) map.setPaintProperty(id, 'heatmap-opacity', lo);
-    map.setPaintProperty('plain', 'line-opacity', .95 * lo);
+    map.setPaintProperty('plain', 'line-opacity', lo);
+    map.setPaintProperty('plain-case', 'line-opacity', outlineOpacity() * lo);
+    map.setPaintProperty('plain-case', 'line-color', outlineColor());
     map.setPaintProperty('ex', 'line-opacity', lo);
     map.setPaintProperty('ex-glow', 'line-opacity', .25 * lo);
     map.setPaintProperty('ex-case', 'line-opacity', .85 * lo);
     map.setPaintProperty('veil', 'background-opacity', 1 - s.mapOp / 100);
     for (const id of ['lines', 'plain', 'ex', 'ex-glow']) map.setPaintProperty(id, 'line-color', trackColor());
+    map.setPaintProperty('hl-arrows', 'icon-color', mix(trackColor(), '#000000', .2));
     map.setPaintProperty('glow', 'line-color', glowColor());
   });
 
@@ -178,7 +210,8 @@
   $effect(() => {
     if (!ready || !map.getLayer('lines')) return;
     map.setPaintProperty('lines', 'line-width', lineWidth());
-    map.setPaintProperty('plain', 'line-width', lineWidth());
+    map.setPaintProperty('plain', 'line-width', routeWidth());
+    map.setPaintProperty('plain-case', 'line-width', routeWidth(1));
     map.setPaintProperty('glow', 'line-width', glowWidth());
     map.setPaintProperty('heat', 'heatmap-intensity', heatIntensity());
     map.setPaintProperty('soft', 'heatmap-intensity', softIntensity());
@@ -191,7 +224,7 @@
     const r = app.highlighted;
     if (!ready || !map.getSource('hl')) return;
     map.getSource('hl').setData(r ? { type: 'Feature', properties: {},
-      geometry: { type: 'MultiLineString', coordinates: r.segs } } : empty);
+      geometry: { type: 'MultiLineString', coordinates: r.segs.map(smooth) } } : empty);
     if (!r || r === zoomedTo) { zoomedTo = r; return; }
     zoomedTo = r;
     const b = new maplibregl.LngLatBounds();

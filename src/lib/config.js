@@ -24,6 +24,7 @@ export const BASES = {
     style: DARK_STYLE,
     // one colour for every layer (Density's); Density stands out by its halo
     line: '#ffb38a', glow: '#ff6a2b', lineOpacity: [.06, .12, .3], glowOpacity: [.05, .08], casing: '#0b0d10',
+    hlGlow: '#ffd86f',   // selected run: white line with a golden glow (other maps: dark casing)
   },
   // CARTO Voyager: colourful vector street map (free, no key, same provider as Dark)
   standard: {

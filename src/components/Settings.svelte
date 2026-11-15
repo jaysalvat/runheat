@@ -59,6 +59,13 @@
     {/each}
   </div>
 
+  <div class="label"><span>Route outline</span></div>
+  <Segmented bind:value={s.outline} options={[
+    { value: 'tint', label: 'Tinted', title: 'A slightly darker shade of the track colour' },
+    { value: 'dark', label: 'Dark', title: 'Black outline around the routes' },
+    { value: 'none', label: 'None', title: 'No outline' },
+  ]} />
+
   <Slider label="Layers opacity" bind:value={s.layerOp} min={10} display="{s.layerOp}%" />
   <Slider label="Map opacity" bind:value={s.mapOp} display="{s.mapOp}%" title="Fades the basemap to black so your runs stand out" />
 
