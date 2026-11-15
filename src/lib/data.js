@@ -54,6 +54,23 @@ export const RunData = (() => {
     try { const res = await fetch(new URL(url, document.baseURI), { cache: 'no-cache' }); return res.ok ? await res.json() : null; }
     catch (e) { return null; }
   };
+  // The demo runs are moved forward by whole weeks so the latest one falls in the past 7 days:
+  // the demo always looks recent, and weekdays (calendar, weekly streaks) stay the same.
+  const DAY = 864e5;
+  const utcDay = ymd => Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10));
+  const shiftYmd = (ymd, days) => new Date(utcDay(ymd) + days * DAY).toISOString().slice(0, 10);
+  function redate(demo) {
+    const last = demo.runs.reduce((m, r) => (r.date > m ? r.date : m), '');
+    if (!last) return demo;
+    const now = new Date(), today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const days = Math.floor((today - utcDay(last)) / DAY / 7) * 7;
+    if (days <= 0) return demo;
+    const move = v => v && shiftYmd(v, days) + v.slice(10);   // keeps the time part of 't'
+    return { ...demo,
+      runs: demo.runs.map(r => ({ ...r, date: move(r.date), t: move(r.t) })),
+      zones: (demo.zones || []).map(z => ({ ...z, from: move(z.from), to: move(z.to) })) };
+  }
+
   const DEMO_KEY = 'runmap-demo';
   const demoWanted = () => { try { return localStorage.getItem(DEMO_KEY) === '1'; } catch (e) { return false; } };
   function setDemo(on) {
@@ -67,7 +84,7 @@ export const RunData = (() => {
     const info = { imported: imported.length, own, demo: false };
     if (demoWanted() || !own) {
       const demo = await fetchJson('demo.json');
-      if (demo) return { ...demo, ...info, demo: true };
+      if (demo) return { ...redate(demo), ...info, demo: true };
     }
     if (!own) return { runs: [], zones: [], ...info };   // no demo.json either
     const sig = signature(), cached = await get('built');
