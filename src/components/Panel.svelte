@@ -5,7 +5,9 @@
   import { nf, plural } from '../lib/format.js';
   import { mapCtl } from '../lib/mapctl.js';
   import IconButton from './ui/IconButton.svelte';
-  import Icon from './ui/Icon.svelte';
+  import Upload from './icons/Upload.svelte';
+  import Chart from './icons/Chart.svelte';
+  import Gear from './icons/Gear.svelte';
   import Toggle from './ui/Toggle.svelte';
   import Segmented from './ui/Segmented.svelte';
   import SportIcon from './ui/SportIcon.svelte';
@@ -15,38 +17,58 @@
   const s = app.settings;
   let collapsed = $state(false);
 
-  const baseOptions = Object.entries(BASES).map(([value, b], i) => ({ value, label: b.label, title: `${b.label} map`, key: String(i + 1) }));
+  const BASE_KEYS = Object.keys(BASES);
+  const baseOptions = BASE_KEYS.map((value, i) => ({
+    value,
+    label: BASES[value].label,
+    title: `${BASES[value].label} map`,
+    key: String(i + 1),
+  }));
   const km = $derived(Math.round(app.sel.reduce((t, r) => t + r.km, 0)));
   const nBySport = $derived.by(() => {
     const c = {};
     for (const r of app.runs) c[r.sp] = (c[r.sp] || 0) + 1;
     return c;
   });
-  const sources = $derived([...new Set(app.runs.map(r => r.src))]);
+  const sources = $derived([...new Set(app.runs.map((r) => r.src))]);
 
-  // Set membership as a checkbox (function binding: get, set)
-  const member = (set, key) => [() => set.has(key), on => (on ? set.add(key) : set.delete(key))];
-  const togglePanel = name => (app.panel = app.panel === name ? null : name);
+  // Set membership as a checkbox, for a function binding: bind:checked={get, set}
+  const member = (set, key) => [() => set.has(key), (on) => (on ? set.add(key) : set.delete(key))];
+  const togglePanel = (name) => (app.panel = app.panel === name ? null : name);
 
-  // Keyboard shortcuts (shown in the tooltips through aria-keyshortcuts). Ignored while typing
-  // in a field or with a modifier, so browser shortcuts keep working.
+  // Keyboard shortcuts (shown in the tooltips through aria-keyshortcuts). Ignored with Cmd/Ctrl,
+  // so browser shortcuts keep working, and while typing in a field. Checkboxes, sliders and colour
+  // pickers don't count as fields: they keep the focus after a click.
   function shortcut(e) {
     if (e.metaKey || e.ctrlKey || e.isComposing) return;
-    // typing in a field (checkboxes, sliders and colour pickers don't count: they keep focus after a click)
-    if (e.target.closest?.('input:not([type=checkbox], [type=radio], [type=range], [type=color]), textarea, select, [contenteditable]')) return;
-    // Alt + digit: show / hide a layer (e.code: on a Mac, Alt changes the character typed)
+    if (
+      e.target.closest?.(
+        'input:not([type=checkbox], [type=radio], [type=range], [type=color]), textarea, select, [contenteditable]',
+      )
+    )
+      return;
+    // Alt+digit toggles a layer. Read e.code: on a Mac, Alt changes the character in e.key.
     if (e.altKey) {
-      const n = /^Digit([1-9])$/.exec(e.code)?.[1], l = n && LAYERS[n - 1];
-      if (l) { s[l.key] = !s[l.key]; e.preventDefault(); }
+      const n = /^Digit([1-9])$/.exec(e.code)?.[1],
+        l = n && LAYERS[n - 1];
+      if (l) {
+        s[l.key] = !s[l.key];
+        e.preventDefault();
+      }
       return;
     }
-    const k = e.key.toLowerCase(), bases = Object.keys(BASES);
+    const k = e.key.toLowerCase();
     if (k === 'f') {
       collapsed = false;
-      requestAnimationFrame(() => { const f = document.getElementById('placeFilter'); f?.focus(); f?.select(); });
+      // the field is hidden while the panel is collapsed: focus it once it's displayed again
+      requestAnimationFrame(() => {
+        const f = document.getElementById('placeFilter');
+        f?.focus();
+        f?.select();
+      });
     } else if (k === 's') s.stats = !s.stats;
     else if (k === ',') togglePanel('settings');
-    else if (/^[1-9]$/.test(k) && bases[k - 1]) s.base = bases[k - 1];
+    else if (/^[1-9]$/.test(k) && BASE_KEYS[k - 1]) s.base = BASE_KEYS[k - 1];
     else return;
     e.preventDefault();
   }
@@ -56,12 +78,28 @@
 
 <div class="floating panel" class:collapsed id="panel">
   <h1>
-    <span>My runs{#if app.info.demo}<span class="demo">Demo</span>{/if}</span>
+    <span
+      >My runs{#if app.info.demo}<span class="demo">Demo</span>{/if}</span
+    >
     <span class="actions">
-      <IconButton label="Import runs" accent={app.info.demo || !app.runs.length} on={app.panel === 'data'} onclick={() => togglePanel('data')}><Icon name="upload" /></IconButton>
-      <IconButton label="Statistics" aria-keyshortcuts="S" on={s.stats} onclick={() => (s.stats = !s.stats)}><Icon name="chart" /></IconButton>
-      <IconButton label="Display settings" aria-keyshortcuts="," on={app.panel === 'settings'} onclick={() => togglePanel('settings')}><Icon name="gear" /></IconButton>
-      <span class="collapse"><IconButton label="Collapse panel" onclick={() => (collapsed = !collapsed)}>▾</IconButton></span>
+      <IconButton
+        label="Import runs"
+        accent={app.info.demo || !app.runs.length}
+        on={app.panel === 'data'}
+        onclick={() => togglePanel('data')}><Upload /></IconButton
+      >
+      <IconButton label="Statistics" aria-keyshortcuts="S" on={s.stats} onclick={() => (s.stats = !s.stats)}
+        ><Chart /></IconButton
+      >
+      <IconButton
+        label="Display settings"
+        aria-keyshortcuts=","
+        on={app.panel === 'settings'}
+        onclick={() => togglePanel('settings')}><Gear /></IconButton
+      >
+      <span class="collapse"
+        ><IconButton label="Collapse panel" onclick={() => (collapsed = !collapsed)}>▾</IconButton></span
+      >
     </span>
   </h1>
 
@@ -85,12 +123,19 @@
 
     <div class="label"><span>Activities</span></div>
     <div class="row">
-      <!-- every type is listed; the ones missing from your data are greyed out -->
+      <!-- every type is listed; the ones missing from the data are disabled -->
       {#each Object.keys(SPORTS) as sp (sp)}
         {@const n = nBySport[sp] || 0}
         {@const [get, set] = member(app.sports, sp)}
-        <Toggle compact bind:checked={get, set} disabled={!n} label={SPORTS[sp].label}
-          title={n ? `${SPORTS[sp].label} · ${plural(n, 'activity')}` : `${SPORTS[sp].label} · none in your data`}>
+        <Toggle
+          compact
+          bind:checked={get, set}
+          disabled={!n}
+          label={SPORTS[sp].label}
+          title={n
+            ? `${SPORTS[sp].label} · ${plural(n, 'activity')}`
+            : `${SPORTS[sp].label} · none in your data`}
+        >
           <SportIcon {sp} />
         </Toggle>
       {/each}
@@ -106,24 +151,74 @@
       {/each}
     </div>
 
-    <button class="btn" onclick={() => app.area && mapCtl.fit(app.area, { maxZoom: 22, duration: 1000 })}>Back to my main area</button>
+    <button class="btn" onclick={() => app.area && mapCtl.fit(app.area, { maxZoom: 22, duration: 1000 })}
+      >Back to my main area</button
+    >
   </div>
 </div>
 
 <style>
-  .panel { top: 16px; left: 16px; width: 340px; }
-  h1 { font-size: 15px; margin: 0 0 12px; font-weight: 600; letter-spacing: .02em;
-    display: flex; align-items: center; justify-content: space-between; }
-  .actions { display: flex; gap: 4px; }
-  .demo { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--accent); color: var(--on-accent);
-    font-size: 11px; font-weight: 600; vertical-align: 2px; }
-  .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
-  .totals b { display: block; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .totals span { color: var(--muted); font-size: 12px; }
-  .collapse { display: none; }
+  .panel {
+    top: 16px;
+    left: 16px;
+    width: 340px;
+  }
+  h1 {
+    font-size: 15px;
+    margin: 0 0 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .actions {
+    display: flex;
+    gap: 4px;
+  }
+  .demo {
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 11px;
+    font-weight: 600;
+    vertical-align: 2px;
+  }
+  .totals {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .totals b {
+    display: block;
+    font-size: 22px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .totals span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .collapse {
+    display: none;
+  }
   @media (max-width: 600px) {
-    .panel { left: 16px; right: 16px; width: auto; top: auto; bottom: 16px; max-height: 60%; }
-    .collapsed .body { display: none; }
-    .collapse { display: inline-flex; }
+    .panel {
+      left: 16px;
+      right: 16px;
+      width: auto;
+      top: auto;
+      bottom: 16px;
+      max-height: 60%;
+    }
+    .collapsed .body {
+      display: none;
+    }
+    .collapse {
+      display: inline-flex;
+    }
   }
 </style>

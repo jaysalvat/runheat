@@ -1,7 +1,13 @@
 <script>
-  import { SPORTS } from '../../lib/config.js';
+  import Run from '../icons/Run.svelte';
+  import Ride from '../icons/Ride.svelte';
+  import Walk from '../icons/Walk.svelte';
+  import Swim from '../icons/Swim.svelte';
+  import More from '../icons/More.svelte';
+
+  const ICONS = { run: Run, ride: Ride, walk: Walk, swim: Swim, other: More };
   let { sp, size = 22 } = $props();
+  const Icon = $derived(ICONS[sp] ?? More);
 </script>
 
-<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html SPORTS[sp].icon}</svg>
+<Icon {size} />

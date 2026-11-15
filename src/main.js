@@ -6,5 +6,5 @@ import { mapCtl } from './lib/mapctl.js';
 
 mount(App, { target: document.getElementById('app') });
 
-// handy in the browser console while developing
+// Exposed for debugging from the browser console in dev
 if (import.meta.env.DEV) Object.assign(window, { app, mapCtl });

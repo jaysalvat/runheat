@@ -11,12 +11,15 @@
   import Toast from './components/Toast.svelte';
   import HoverTip from './components/HoverTip.svelte';
 
-  onMount(() => { app.load(); });
+  onMount(() => {
+    app.load();
+  });
 
   // Interface colour → CSS variables on the page
   $effect(() => {
     const root = document.documentElement.style;
-    for (const [k, v] of Object.entries(accentVars(app.settings.accent))) v ? root.setProperty(k, v) : root.removeProperty(k);
+    for (const [k, v] of Object.entries(accentVars(app.settings.accent)))
+      v ? root.setProperty(k, v) : root.removeProperty(k);
   });
 </script>
 
@@ -31,6 +34,15 @@
 {#if app.busy}<div class="busy">{app.busy}</div>{/if}
 
 <style>
-  .busy { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center;
-    background: rgba(0,0,0,.45); color: var(--text); font-size: 14px; }
+  .busy {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    color: var(--text);
+    font-size: 14px;
+  }
 </style>
