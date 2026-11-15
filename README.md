@@ -81,8 +81,14 @@ maplibre-contour for the contour lines.
 
 ### Releasing
 
-Versions follow [SemVer](https://semver.org/). `npm version patch` (or `minor`, `major`) bumps `package.json`,
-commits and tags `vX.Y.Z`; `git push --follow-tags` then deploys the site and creates the GitHub Release
+Versions follow [SemVer](https://semver.org/). One command does the whole release:
+
+```bash
+npm run release:patch   # or release:minor, release:major
+```
+
+It runs the checks and the build, bumps `package.json`, commits and tags `vX.Y.Z`, then pushes with the tag.
+The push deploys the site, and the tag creates the GitHub Release
 ([`.github/workflows/release.yml`](.github/workflows/release.yml), notes generated from the commits). The
 version is shown at the bottom of the settings.
 

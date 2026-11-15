@@ -11,7 +11,12 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "check": "prettier --check . && eslint ."
+    "check": "prettier --check . && eslint .",
+    "preversion": "npm run check && npm run build",
+    "postversion": "git push --follow-tags",
+    "release:patch": "npm version patch -m \"Release v%s\"",
+    "release:minor": "npm version minor -m \"Release v%s\"",
+    "release:major": "npm version major -m \"Release v%s\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
