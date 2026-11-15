@@ -1,7 +1,7 @@
 {
   "name": "runheat",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "license": "MIT",
   "description": "Every run you have ever done, on one map: routes, heatmaps and stats from your GPS files, in the browser.",
   "type": "module",
