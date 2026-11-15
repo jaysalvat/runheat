@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import pkg from './package.json' with { type: 'json' };
 
 // Link previews need absolute URLs, but the deployed address is not hard-coded in the repo:
 // set SITE_URL in .env (git-ignored) or in the build environment, e.g. SITE_URL=https://example.com/
@@ -22,6 +23,7 @@ function siteUrl(url) {
 }
 
 export default defineConfig(({ mode }) => ({
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) }, // shown in the settings
   plugins: [svelte(), siteUrl(process.env.SITE_URL || loadEnv(mode, process.cwd(), '').SITE_URL)],
   // Relative asset paths: the built site works from any folder or subdomain
   base: './',

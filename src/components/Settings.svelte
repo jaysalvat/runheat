@@ -154,6 +154,10 @@
   >
     {armed ? 'Click again to confirm' : 'Remove all activities'}
   </button>
+
+  <a class="version" href="https://github.com/jaysalvat/runheat" target="_blank" rel="noopener"
+    >runheat v{__APP_VERSION__}</a
+  >
 </div>
 
 <style>
@@ -182,6 +186,17 @@
   }
   .goal input:focus {
     border-color: var(--accent);
+  }
+  .version {
+    display: block;
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 11px;
+    text-align: center;
+    text-decoration: none;
+  }
+  .version:hover {
+    color: var(--text);
   }
   .remove {
     margin-top: 6px;

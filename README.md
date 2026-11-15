@@ -79,6 +79,13 @@ npm run check     # Prettier + ESLint (npm run format / npm run lint to fix or l
 The stack is Svelte 5, Vite and MapLibre GL JS, plus d3 for the charts, fflate for archives and
 maplibre-contour for the contour lines.
 
+### Releasing
+
+Versions follow [SemVer](https://semver.org/). `npm version patch` (or `minor`, `major`) bumps `package.json`,
+commits and tags `vX.Y.Z`; `git push --follow-tags` then deploys the site and creates the GitHub Release
+([`.github/workflows/release.yml`](.github/workflows/release.yml), notes generated from the commits). The
+version is shown at the bottom of the settings.
+
 ### Deploying
 
 `npm run build` produces a static site in `dist/` that works from any folder or subdomain.
