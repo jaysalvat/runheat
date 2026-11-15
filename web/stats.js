@@ -187,26 +187,30 @@
     const byDay = d3.rollup(pool.filter(r => r.year === calYear), v => v, r => r.d);
     const start = new Date(calYear, 0, 1), end = new Date(calYear + 1, 0, 1);
     const days = d3.timeDays(start, end);
+    // The calendar fills its card (1/3 of the column): cells follow the width (cw) and the height (ch)
     const W = el.clientWidth, m = { t: 14, l: 22 };
     const weeks = d3.timeMonday.count(d3.timeMonday.floor(start), end) + 1;
-    const cs = Math.max(6, Math.min(22, Math.floor((W - m.l) / weeks)));
-    const H = m.t + cs * 7;
-    el.style.height = H + 'px';
-    const svg = d3.select(el).append('svg').attr('width', W).attr('height', H);
+    const cw = Math.max(6, Math.floor((W - m.l) / weeks));
+    // rows may be taller than wide, up to 1.6× (beyond that cells look like bars: centred instead)
+    const ch = Math.max(6, Math.min(Math.round(cw * 1.6), Math.floor((el.clientHeight - m.t) / 7)));
+    const cs = ch;   // vertical step (row height)
+    const H = m.t + ch * 7;
+    const svg = d3.select(el).append('svg').attr('width', W).attr('height', H)
+      .style('top', Math.max(0, (el.clientHeight - H) / 2) + 'px');
     const maxKm = Math.max(10, d3.max([...byDay.values()], v => d3.sum(v, r => r.km)) || 0);
     const color = d3.scaleSequential(d3.interpolateRgbBasis([css('--g0'), css('--g2'), css('--g3')])).domain([0, maxKm]);
     const wk = d => d3.timeMonday.count(d3.timeMonday.floor(start), d);
     const dow = d => (d.getDay() + 6) % 7;
 
     ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].forEach((t, i) => t && svg.append('text').attr('class', 'axis')
-      .attr('x', 0).attr('y', m.t + i * cs + cs * .75).attr('fill', css('--muted')).attr('font-size', 9).text(t));
+      .attr('x', 0).attr('y', m.t + i * cs + cs / 2 + 3).attr('fill', css('--muted')).attr('font-size', 9).text(t));
     const [dA, dB] = dateRange();
     const sc = volScope(dA, dB);
     const selMonth = sc.level === 'day' && sc.y === calYear ? sc.m : null;
     d3.timeMonths(start, end).forEach(mo => {
       const mi = mo.getMonth() + 1;
       svg.append('text').attr('class', 'cal-month' + (mi === selMonth ? ' on' : ''))
-        .attr('x', m.l + wk(mo) * cs).attr('y', 9).attr('font-size', 10)
+        .attr('x', m.l + wk(mo) * cw).attr('y', 9).attr('font-size', 10)
         .text(mo.toLocaleDateString(LOCALE, { month: 'short' }))
         .on('click', () => setRange(...(mi === selMonth ? yearRange(calYear) : monthRange(calYear, mi))));
     });
@@ -215,8 +219,8 @@
 
     svg.append('g').selectAll('rect').data(days).join('rect')
       .attr('class', d => 'day' + (byDay.has(toInt(d)) ? ' has' : ''))
-      .attr('x', d => m.l + wk(d) * cs).attr('y', d => m.t + dow(d) * cs)
-      .attr('width', cs - 2).attr('height', cs - 2)
+      .attr('x', d => m.l + wk(d) * cw).attr('y', d => m.t + dow(d) * ch)
+      .attr('width', cw - 2).attr('height', ch - 2)
       .attr('opacity', d => (dim(d) ? .3 : 1))
       .attr('fill', d => {
         const v = byDay.get(toInt(d));
@@ -299,7 +303,7 @@
     const newKm = d3.sum(sel, r => r.nk || 0), gpsKm = d3.sum(sel, r => r.gk || 0);
     const share = gpsKm ? newKm / gpsKm : 0;
     const ex = gauge(share, (share < .1 && share > 0 ? nf(100 * share, 1) : Math.round(100 * share)) + '%',
-      'Exploration', `${nf(newKm, newKm < 10 ? 1 : 0)} km of new paths`, '--explore');
+      'Exploration', `${nf(newKm, newKm < 10 ? 1 : 0)} km of new paths`);
     // Click: shows / hides these paths on the map
     ex.classList.add('clickable');
     ex.classList.toggle('on', state.explore);

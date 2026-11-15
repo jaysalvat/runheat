@@ -3,7 +3,6 @@
   /* chart gradient = app colors: deep orange → accent → track peach */
   --g1: #b3441a; --g2: #ff6a2b; --g3: #ffb38a;
   --g0: #4a2414;       /* lowest calendar value, still distinct from an empty cell */
-  --explore: #5ef2c2;  /* new paths (configurable: updated by the page from the chosen color) */
 }
 .stats-drawer {
   position: absolute; left: 372px; right: 16px; bottom: 16px; z-index: 2;
@@ -30,10 +29,13 @@
 .card .hint { font-size: 11px; color: var(--muted); opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chart { position: relative; width: 100%; }
 .chart svg { display: block; overflow: visible; }
-/* Two independent columns: volume stretches to fill the remaining height */
+/* Two independent columns. Left: Volume 2/3 of the height, Calendar 1/3 (both fill their card) */
 .stats-grid .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.card-volume { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.stats-grid .col-main { display: grid; grid-template-rows: minmax(0, 2fr) minmax(0, 1fr); }
+.card-volume, .card-cal { display: flex; flex-direction: column; min-height: 0; }
 #chVolume { flex: 1; min-height: 150px; }
+#chCal { flex: 1; min-height: 100px; }
+#chCal svg { position: absolute; top: 0; left: 0; }   /* never pushes its card taller */
 .crumbs { display: flex; align-items: center; gap: 4px; min-height: 20px; margin: -2px 0 2px; font-size: 12px; }
 .crumbs button { background: none; border: 0; padding: 1px 4px; border-radius: 4px; color: var(--muted); font: inherit; cursor: pointer; }
 .crumbs button:hover { color: var(--text); background: var(--chip); }
@@ -47,15 +49,26 @@
 .grid path { display: none; }
 
 /* Gauges */
-.gauges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; align-items: start; }
+/* equal columns whatever the text length */
+.gauges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; align-items: start; }
+.card-gauges { container-type: inline-size; }
 .gauge { text-align: center; padding: 4px 0; border-radius: 8px; }
 .gauge svg { width: 100%; max-width: 110px; height: auto; }
 .gauge .val { font-size: 20px; font-weight: 600; fill: var(--text); font-variant-numeric: tabular-nums; }
 .gauge .sub { margin-top: 6px; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .gauge.clickable { cursor: pointer; transition: background .15s; }
 .gauge.clickable:hover { background: rgba(255,255,255,.04); }
-.gauge.clickable.on { background: color-mix(in srgb, var(--explore) 10%, transparent); }
+.gauge.clickable.on { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .gauge .cap { font-size: 11px; color: var(--muted); margin-top: 4px; opacity: .8; }
+/* Narrow card: one gauge per row, small arc on the left, texts on the right */
+@container (max-width: 300px) {
+  .gauges { grid-template-columns: 1fr; gap: 2px; }
+  .gauge { display: grid; grid-template-columns: 76px 1fr; grid-template-rows: 1fr 1fr; column-gap: 12px;
+    align-items: center; text-align: left; padding: 2px 8px 2px 0; }
+  .gauge svg { grid-row: 1 / 3; max-width: 76px; }
+  .gauge .sub { margin-top: 0; align-self: end; }
+  .gauge .cap { margin-top: 2px; align-self: start; }
+}
 
 /* Records */
 .records { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
