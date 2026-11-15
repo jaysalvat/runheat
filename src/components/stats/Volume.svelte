@@ -1,5 +1,7 @@
 <script>
   // Volume: distance per year → per month → per day. Clicking a bar drills down.
+  // Adds selection.transition(): imported for its side effect, which the production bundle would drop
+  import 'd3-transition';
   import { scaleBand, scaleLinear, axisLeft, axisBottom, select, sum, max as d3max, easeCubicOut } from 'd3';
   import { app } from '../../lib/app.svelte.js';
   import { LOCALE } from '../../lib/config.js';
