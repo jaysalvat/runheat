@@ -32,6 +32,7 @@
   .settings { position: absolute; top: 16px; left: 372px; width: 320px; padding: 18px; z-index: 3;
     background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--panel-border);
     border-radius: 12px; box-shadow: var(--shadow); }
+  .settings { max-height: calc(100% - 32px); overflow: auto; }   /* short windows: scroll, keep Reset reachable */
   .settings[hidden] { display: none; }
   .settings > .label:first-of-type { margin-top: 0; }
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
@@ -102,6 +103,9 @@
   .zones small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
   .zones button.dim { opacity: .35; }
   .src { display: flex; gap: 6px; }
+  .src label.ico { padding: 6px 4px; }
+  .src label.ico:has(input:disabled) { opacity: .3; cursor: default; }
+  .src label.ico:has(input:disabled):hover { color: var(--muted); }
   .src label { flex: 1; }
   .btn { width: 100%; margin-top: 14px; padding: 8px; background: var(--chip); color: var(--text);
     border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font: inherit; }
@@ -111,19 +115,72 @@
   .goal input { width: 90px; padding: 6px 8px; background: var(--chip); color: var(--text); border: 1px solid transparent;
     border-radius: 8px; font: inherit; outline: none; }
   .goal input:focus { border-color: var(--accent); }
+  /* ---------- Your runs: import / reset ---------- */
+  .data-dlg { width: 340px; }
+  .dsum { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+  .dsum b { color: var(--text); font-weight: 600; }
+  .drop { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 14px; text-align: center;
+    border: 1.5px dashed var(--line); border-radius: 10px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .drop:hover, .drop.over { border-color: var(--accent); background: rgba(255,106,43,.06); }
+  .drop svg { color: var(--accent); margin-bottom: 4px; }
+  .drop b { font-weight: 600; }
+  .drop span, .drop small { color: var(--muted); font-size: 12px; }
+  .drop.busy { pointer-events: none; opacity: .5; }
+  .link-btn { display: block; margin: 8px auto 0; padding: 2px 6px; background: none; border: 0; color: var(--muted);
+    font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+  .link-btn:hover { color: var(--text); }
+  .dprog { margin-top: 12px; font-size: 12px; color: var(--muted); }
+  .dprog[hidden], .dres[hidden] { display: none; }
+  .data-btns { grid-template-columns: 1fr; }
+  .data-btns label:has(input:disabled) { cursor: default; opacity: .6; }
+  #dReset { margin-top: 6px; }
+  #dReset:disabled { opacity: .45; cursor: default; border-color: var(--line); color: var(--muted); }
+  .demo-chip { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--accent); color: #111;
+    font-size: 11px; font-weight: 600; vertical-align: 2px; }
+  .dprog .bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+  .dprog .bar span { display: block; height: 100%; width: 30%; background: var(--accent); transition: width .2s; }
+  .dprog .bar.indet span { animation: indet 1.1s ease-in-out infinite; }
+  @keyframes indet { from { margin-left: -30%; } to { margin-left: 100%; } }
+  .dres { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: var(--chip); font-size: 13px; }
+  .dres ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 12px; }
+  .dres .err { color: #ff8a80; }
+  .dchoice { margin-top: 12px; padding: 12px; border-radius: 8px; background: var(--chip); font-size: 13px; }
+  .dchoice[hidden] { display: none; }
+  .dchoice .row { display: flex; gap: 6px; margin-top: 10px; }
+  .dchoice .row .btn { margin: 0; flex: 1; }
+  .dchoice .btn.primary { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 600; }
+  .btn.danger:hover { border-color: #ff6b5e; color: #ff8a80; }
+  .btn.danger.armed { background: #5a1d17; border-color: #ff6b5e; color: #fff; }
+  .data-dlg details { margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .data-dlg summary { cursor: pointer; color: var(--text); }
+  .data-dlg details p { margin: 6px 0 0; }
+  .dnote { margin: 14px 0 0; font-size: 11px; color: var(--muted); opacity: .8; }
+  .dnote a { color: inherit; }
+  .toast { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 6; padding: 10px 16px;
+    border-radius: 10px; background: #000; color: #fff; font-size: 13px; box-shadow: var(--shadow); transition: opacity .4s; }
+  .toast[hidden] { display: none; }
+  .busy-veil { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.45); color: var(--text); font-size: 14px; }
+  .busy-veil[hidden] { display: none; }
   @media (max-width: 600px) {
     .panel { left: 16px; right: 16px; width: auto; top: auto; bottom: 16px; max-height: 60%; }
     .panel.collapsed > :not(h1) { display: none; }
     #toggle { display: inline-flex; }
-    .settings { left: 16px; right: 16px; width: auto; top: 16px; }
+    .settings, .data-dlg { left: 16px; right: 16px; width: auto; top: 16px; }
   }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div class="panel" id="panel">
-  <h1><span>My runs</span>
+  <h1><span id="title">My runs</span>
     <span class="h-actions">
+      <button class="icon-btn" id="openData" title="Import runs" aria-label="Import runs">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>
+        </svg>
+      </button>
       <button class="icon-btn" id="openStats" title="Statistics" aria-label="Statistics">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -181,6 +238,10 @@
     aria-label="Filter places">
   <div class="zones" id="zones"></div>
   <div class="zempty" id="zEmpty" hidden>No matching place</div>
+  <div id="sportCtl" hidden>
+    <div class="label"><span>Activities</span></div>
+    <div class="src" id="sport"></div>
+  </div>
   <div class="label"><span>Sources</span></div>
   <div class="src" id="src"></div>
   <button class="btn" id="fitMain">Back to my main area</button>
@@ -216,7 +277,49 @@
 
   <div class="label"><span>Yearly goal</span></div>
   <label class="goal"><input type="number" id="goal" min="50" max="10000" step="50"> km / year</label>
+
+  <div class="label"><span>Data</span></div>
+  <div class="layers data-btns">
+    <label id="demoLbl" title="Show the demo runs (French Riviera) instead of yours">
+      <input type="checkbox" id="demoToggle">Demo data</label>
+  </div>
+  <button class="btn danger" id="dReset"></button>
 </div>
+
+<!-- Your runs: import files / archives, remove imported runs -->
+<div class="settings data-dlg" id="dataDlg" role="dialog" aria-label="Import runs" hidden>
+  <h2><span>Your runs</span><button class="icon-btn" id="closeData" aria-label="Close">✕</button></h2>
+  <p class="dsum" id="dSum"></p>
+  <label class="drop" id="drop">
+    <input type="file" id="dFiles" multiple accept=".gpx,.tcx,.fit,.json,.gz,.zip" hidden>
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>
+    </svg>
+    <b>Drop files here</b>
+    <span>or click to choose files</span>
+    <small>GPX, TCX, FIT, Nike export, or a Strava / Garmin export (.zip)</small>
+  </label>
+  <input type="file" id="dDir" webkitdirectory hidden>
+  <button class="link-btn" id="dDirBtn">Choose a folder instead</button>
+  <div class="dchoice" id="dChoice" hidden></div>
+  <div class="dprog" id="dProg" hidden><div class="bar"><span></span></div><div id="dProgTxt"></div></div>
+  <div class="dres" id="dRes" hidden></div>
+  <details>
+    <summary>Where do I find my files?</summary>
+    <p><b>Strava</b>: Settings → My Account → Download or Delete Your Account → Request your archive.
+      You get an email with a .zip: drop it here as is.</p>
+    <p><b>Garmin</b>: Account → Data Management → Export Your Data. Drop the .zip you receive.</p>
+    <p><b>Nike Run Club</b>: Nike has no export button. Its app data can be fetched with a small script
+      (e.g. nrc-exporter); drop the folder of .json or .gpx files it creates.</p>
+    <p><b>Other apps</b>: export your runs as GPX, TCX or FIT files and drop them here (several at once is fine).</p>
+  </details>
+  <p class="dnote">Files are read in your browser: nothing is uploaded. A run starting within 2 minutes of one
+    already on the map is skipped as a duplicate. Place names:
+    <a href="https://www.geonames.org" target="_blank" rel="noopener">GeoNames</a> (CC BY 4.0).</p>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="busy-veil" id="busy" hidden></div>
 
 <!-- Stats drawer -->
 <section class="stats-drawer" id="statsDrawer" aria-label="Statistics" hidden>
@@ -253,6 +356,7 @@
 </section>
 <div class="chart-tip" id="chartTip" hidden></div>
 
+<script src="data.js"></script>
 <script>
 // ---------- Basemaps ----------
 const LOCALE = 'en-GB';           // dates "3 Aug 2022", numbers "1,346"
@@ -370,6 +474,19 @@ const heatIntensity = () => {
 };
 try { Object.assign(state, JSON.parse(localStorage.getItem('runmap') || '{}')); } catch (e) {}
 state.sources = new Set();
+state.sports = new Set();
+// A run is shown if its source and its activity type are both selected
+const keep = r => state.sources.has(r.src) && state.sports.has(r.sp);
+// Activity types: label, word for messages, icon (24×24 stroke paths, drawn in currentColor)
+const SPORTS = {
+  run: { label: 'Run / trail', word: 'run', icon: '<circle cx="15" cy="5" r="2"/><path d="M12.61 8.27 9.3 12.4l4.14 4.14-2.07 4.55"/><path d="M6.41 9.51 9.8 6.2l2.81 2.07 2.9 3.3h3.72"/><path d="m8.89 15.71-1.24.83H4.34"/>' },
+  ride: { label: 'Bike / MTB', word: 'ride', icon: '<circle cx="14" cy="5" r="2"/><circle cx="18" cy="18" r="3"/><circle cx="6" cy="18" r="3"/><path d="m11.5 18 1.5-4-4.88-2 3-3.5 3 2.5h3.5"/>' },
+  walk: { label: 'Walk / hike', word: 'walk', icon: '<path d="m12.44 9.13-1.41 5.63 4.93 6.34"/><path d="m10.33 18.28-2.12 2.82"/><path d="M8.21 13.35c0-3.94 2.82-4.22 4.23-4.22h1.41c.23 1.17 1.27 3.66 3.52 4.22"/><circle cx="13" cy="5" r="2"/>' },
+  swim: { label: 'Swim', word: 'swim', icon: '<path d="M3 15c2.48 0 4.34-3 4.34-3s1.87 3 4.35 3 4.97-3 4.97-3 2.48 3 4.34 3"/><path d="M3 20c2.48 0 4.34-3 4.34-3s1.87 3 4.35 3 4.97-3 4.97-3 2.48 3 4.34 3"/><path d="m5 10.5 4-2.5-1.19-1.48a1.27 1.27 0 0 1 1.95-1.6L14 10"/><circle cx="16.5" cy="5.5" r="2.5"/>' },
+  other: { label: 'Other', word: 'other activity', icon: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>' },
+};
+const sportIcon = sp => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SPORTS[sp].icon}</svg>`;
 if (!BASES[state.base]) state.base = 'dark';
 const save = () => {
   try { localStorage.setItem('runmap', JSON.stringify(
@@ -481,7 +598,7 @@ function addOverlay() {
 
 // ---------- Global / per-place scale ----------
 // In "per place" mode, each run is weighted by its place's weight w (computed by
-// build_data.py): the most frequent route in each place reaches the top of the scale.
+// importer.js): the most frequent route in each place reaches the top of the scale.
 const byZone = () => state.scale === 'zone';
 const weight = base => byZone() ? ['*', base, ['get', 'w']] : base;
 const scaled = a => byZone() ? ['min', 1, ['*', a, ['get', 'w']]] : a;
@@ -500,7 +617,7 @@ function apply() {
   if (!runs) return;
   const [dA, dB] = dateRange();
   const f = ['all', ['>=', ['get', 'd'], dA], ['<=', ['get', 'd'], dB],
-    ['in', ['get', 'src'], ['literal', [...state.sources]]]];
+    ['in', ['get', 'src'], ['literal', [...state.sources]]], ['in', ['get', 'sp'], ['literal', [...state.sports]]]];
   if (map.getLayer('lines')) {
     for (const id of ['glow', 'lines', 'heat', 'soft', 'raw', 'plain', 'ex', 'ex-glow', 'ex-case']) map.setFilter(id, f);
     const vis = on => on ? 'visible' : 'none';
@@ -530,7 +647,7 @@ function apply() {
     map.setPaintProperty('veil', 'background-opacity', 1 - state.mapOp / 100);
   }
   document.querySelectorAll('#scale button').forEach(x => x.classList.toggle('on', x.dataset.scale === state.scale));
-  const sel = runs.filter(r => r.d >= dA && r.d <= dB && state.sources.has(r.src));
+  const sel = runs.filter(r => r.d >= dA && r.d <= dB && keep(r));
   document.getElementById('sRuns').textContent = sel.length.toLocaleString(LOCALE);
   document.getElementById('sKm').textContent = Math.round(sel.reduce((s, r) => s + r.km, 0)).toLocaleString(LOCALE);
   document.getElementById('yLabel').textContent = state.dFrom
@@ -610,9 +727,13 @@ const statsOpen = () => !document.getElementById('statsDrawer').hidden;
 let styleReady = false;
 map.on('style.load', () => { styleReady = true; if (runs) addOverlay(); });
 
-fetch('runs.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
+const busy = document.getElementById('busy');
+RunData.load(p => { busy.hidden = false; busy.textContent = p.text; }).then(data => {
+  busy.hidden = true;
+  updateDataSummary(data);
+  if (!data.runs.length) { setData(true); return; }   // nothing yet: invite to import
   runs = data.runs;
-  runs.forEach((r, i) => { r.year = +r.date.slice(0, 4); r.d = +r.date.replace(/-/g, ''); r.i = i; });
+  runs.forEach((r, i) => { r.year = +r.date.slice(0, 4); r.d = +r.date.replace(/-/g, ''); r.i = i; r.sp = r.sp || 'run'; });
   const years = runs.map(r => r.year);
   const y0 = Math.min(...years), y1 = Math.max(...years);
   state.yMin = y0; state.yMax = y1;
@@ -620,12 +741,12 @@ fetch('runs.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
   srcs.forEach(s => state.sources.add(s));
 
   linesGeo = { type: 'FeatureCollection', features: runs.map(r => ({
-    type: 'Feature', properties: { year: r.year, d: r.d, src: r.src, km: r.km, w: r.w || 1 },
+    type: 'Feature', properties: { year: r.year, d: r.d, src: r.src, sp: r.sp, km: r.km, w: r.w || 1 },
     geometry: { type: 'MultiLineString', coordinates: r.segs } })) };
-  // New paths: stretches run for the first time (computed by build_data.py)
+  // New paths: stretches run for the first time (computed by importer.js)
   exploreGeo = { type: 'FeatureCollection', features: [] };
   for (const r of runs) for (const [si, a, b] of r.ex || [])
-    exploreGeo.features.push({ type: 'Feature', properties: { year: r.year, d: r.d, src: r.src },
+    exploreGeo.features.push({ type: 'Feature', properties: { year: r.year, d: r.d, src: r.src, sp: r.sp },
       geometry: { type: 'LineString', coordinates: r.segs[si].slice(a, b + 1) } });
   // Heatmap points. The simplified tracks keep many points in bends and pauses and very few
   // on straight lines, which made blobs where we merely stopped. Instead, points are placed
@@ -638,7 +759,7 @@ fetch('runs.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
   for (const r of runs) r.segs.forEach((s, si) => s.forEach((c, pi) => {
     const zi = r.pz ? r.pz[si][pi] : r.z;
     rawGeo.features.push({ type: 'Feature',
-      properties: { year: r.year, d: r.d, src: r.src, w: zoneW[zi] ?? r.w ?? 1 },
+      properties: { year: r.year, d: r.d, src: r.src, sp: r.sp, w: zoneW[zi] ?? r.w ?? 1 },
       geometry: { type: 'Point', coordinates: c } });
   }));
   pointsGeo = { type: 'FeatureCollection', features: [] };
@@ -657,7 +778,7 @@ fetch('runs.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
           seen.add(cell);
           const zi = r.pz ? r.pz[si][pi] : r.z;
           pointsGeo.features.push({ type: 'Feature',
-            properties: { year: r.year, d: r.d, src: r.src, w: zoneW[zi] ?? r.w ?? 1 },
+            properties: { year: r.year, d: r.d, src: r.src, sp: r.sp, w: zoneW[zi] ?? r.w ?? 1 },
             geometry: { type: 'Point', coordinates: [x, y] } });
         }
         carry = (carry - len) % HEAT_STEP_M;
@@ -723,6 +844,25 @@ fetch('runs.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
     if (a > b) [a, b] = [b, a];
     state.yMin = a; state.yMax = b; state.dFrom = state.dTo = null; apply();
   };
+
+  // Activity types: every type is listed (icons), the ones missing from your data are greyed out
+  // (older data may still say "hike": it counts as a walk)
+  runs.forEach(r => { if (!SPORTS[r.sp]) r.sp = r.sp === 'hike' ? 'walk' : 'other'; });
+  const nBySport = {};
+  runs.forEach(r => { nBySport[r.sp] = (nBySport[r.sp] || 0) + 1; });
+  document.getElementById('sportCtl').hidden = false;
+  for (const sp of Object.keys(SPORTS)) {
+    const n = nBySport[sp] || 0;
+    if (n) state.sports.add(sp);
+    const l = document.createElement('label');
+    l.className = 'ico';
+    l.title = n ? `${SPORTS[sp].label} · ${plural(n, 'activity').replace('activitys', 'activities')}` : `${SPORTS[sp].label} · none in your data`;
+    l.innerHTML = `<input type="checkbox" ${n ? 'checked' : 'disabled'} aria-label="${SPORTS[sp].label}">${sportIcon(sp)}`;
+    l.querySelector('input').onchange = e => {
+      e.target.checked ? state.sports.add(sp) : state.sports.delete(sp); apply();
+    };
+    document.getElementById('sport').appendChild(l);
+  }
 
   const srcBox = document.getElementById('src');
   for (const s of srcs) {
@@ -830,6 +970,163 @@ const setSettings = open => {
 openBtn.onclick = () => setSettings(settings.hidden);
 document.getElementById('closeSettings').onclick = () => setSettings(false);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !settings.hidden) setSettings(false); });
+
+// ---------- Your runs: import / reset ----------
+const dataDlg = document.getElementById('dataDlg'), openDataBtn = document.getElementById('openData');
+const setData = open => {
+  dataDlg.hidden = !open;
+  openDataBtn.classList.toggle('on', open);
+  if (open) setSettings(false);
+};
+openDataBtn.onclick = () => setData(dataDlg.hidden);
+document.getElementById('closeData').onclick = () => setData(false);
+openBtn.addEventListener('click', () => { if (!settings.hidden) setData(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !dataDlg.hidden) setData(false); });
+
+const nf = n => n.toLocaleString(LOCALE);
+const plural = (n, w) => `${nf(n)} ${w}${n > 1 ? 's' : ''}`;
+function updateDataSummary(data) {
+  const bySrc = {};
+  data.runs.forEach(r => { bySrc[r.src] = (bySrc[r.src] || 0) + 1; });
+  const parts = Object.entries(bySrc).sort((a, b) => b[1] - a[1])
+    .map(([s, n]) => `${s[0].toUpperCase() + s.slice(1)} ${nf(n)}`);
+  document.getElementById('dSum').innerHTML = data.demo
+    ? `You're looking at the <b>demo</b> (${plural(data.runs.length, 'activity').replace('activitys', 'activities')} on the French Riviera). Import your files to see yours.`
+    : data.runs.length ? `<b>${plural(data.runs.length, 'activity').replace('activitys', 'activities')}</b> on the map · ${parts.join(' · ')}`
+    : 'No activities yet: import your files to see them on the map.';
+  if (data.demo) document.getElementById('title').innerHTML = 'My runs<span class="demo-chip">Demo</span>';
+  // Settings › Data
+  const demo = document.getElementById('demoToggle');
+  demo.checked = data.demo;
+  demo.disabled = !data.own;   // nothing of yours to go back to
+  document.getElementById('demoLbl').title = data.own ? 'Show the demo runs (French Riviera) instead of yours'
+    : 'Import your runs to leave the demo';
+  const reset = document.getElementById('dReset');
+  reset.disabled = !data.imported;
+  reset.textContent = 'Remove all activities';
+  reset.title = data.imported ? `Removes your ${plural(data.imported, 'activity').replace('activitys', 'activities')} from this browser`
+    : 'Nothing imported yet';
+}
+document.getElementById('demoToggle').onchange = e => {
+  RunData.setDemo(e.target.checked);
+  sessionStorage.setItem('runmap-toast', e.target.checked ? 'Showing the demo data' : 'Back to your runs');
+  location.reload();
+};
+
+const drop = document.getElementById('drop'), dProg = document.getElementById('dProg'), dRes = document.getElementById('dRes');
+// When you already have activities: add the new files to them, or replace them?
+function askMode(nFiles) {
+  const box = document.getElementById('dChoice');
+  const n = RunData.count;
+  box.innerHTML = `You already have <b>${plural(n, 'activity').replace('activitys', 'activities')}</b> here.
+    What should ${nFiles > 1 ? `these ${nf(nFiles)} files` : 'this file'} do?
+    <div class="row"><button class="btn primary" data-m="add">Add to them</button>
+    <button class="btn" data-m="replace">Replace them</button></div>
+    <button class="link-btn" data-m="cancel">Cancel</button>`;
+  box.hidden = false;
+  return new Promise(ok => box.querySelectorAll('button').forEach(b => b.onclick = () => {
+    box.hidden = true; ok(b.dataset.m);
+  }));
+}
+
+async function runImport(files) {
+  if (!files.length || drop.classList.contains('busy')) return;
+  setData(true);
+  drop.classList.add('busy'); dRes.hidden = true;
+  const mode = RunData.count ? await askMode(files.length) : 'add';
+  if (mode === 'cancel') { drop.classList.remove('busy'); return; }
+  dProg.hidden = false;
+  const bar = dProg.querySelector('.bar'), fill = bar.querySelector('span');
+  const progress = p => {
+    document.getElementById('dProgTxt').textContent = p.text;
+    bar.classList.toggle('indet', !p.total);
+    if (p.total) fill.style.width = (100 * p.done / p.total) + '%';
+  };
+  progress({ text: 'Reading files…' });
+  try {
+    const rep = await RunData.importFiles(files, progress, mode === 'replace');
+    const lines = [];
+    if (rep.duplicates) lines.push(`${nf(rep.duplicates)} already on the map (duplicates)`);
+    if (rep.noGps) lines.push(`${nf(rep.noGps)} without GPS or date (treadmill…)`);
+    rep.errors.slice(0, 5).forEach(e => lines.push(`<span class="err">${e.replace(/</g, '&lt;')}</span>`));
+    if (rep.errors.length > 5) lines.push(`<span class="err">…and ${rep.errors.length - 5} more errors</span>`);
+    const head = '<b>No new activity</b> added';
+    if (rep.added) {
+      // Reload to rebuild the map, the places and the stats from the new dataset
+      const what = Object.entries(rep.bySport).sort((a, b) => b[1] - a[1])
+        .map(([sp, n]) => plural(n, (SPORTS[sp] || SPORTS.other).word).replace('activitys', 'activities')).join(', ');
+      sessionStorage.setItem('runmap-toast', `${mode === 'replace' ? 'Replaced by' : 'Imported'}: ${what}`);
+      location.reload();
+      return;
+    }
+    dRes.innerHTML = head + (lines.length ? `<ul>${lines.map(l => `<li>${l}</li>`).join('')}</ul>` : '');
+    dRes.hidden = false;
+  } catch (err) {
+    dRes.innerHTML = `<span class="err">Import failed: ${String(err.message).replace(/</g, '&lt;')}</span>`;
+    dRes.hidden = false;
+  } finally {
+    drop.classList.remove('busy'); dProg.hidden = true;
+  }
+}
+document.getElementById('dFiles').onchange = e => { runImport([...e.target.files]); e.target.value = ''; };
+document.getElementById('dDir').onchange = e => { runImport([...e.target.files]); e.target.value = ''; };
+document.getElementById('dDirBtn').onclick = () => document.getElementById('dDir').click();
+// Dropped folders are walked recursively
+async function droppedFiles(dt) {
+  const entries = [...dt.items].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (!entries.length) return [...dt.files];
+  const out = [];
+  const walk = async entry => {
+    if (entry.isFile) { out.push(await new Promise((ok, ko) => entry.file(ok, ko))); return; }
+    const reader = entry.createReader();
+    for (;;) {   // readEntries returns at most ~100 entries per call
+      const batch = await new Promise((ok, ko) => reader.readEntries(ok, ko));
+      if (!batch.length) break;
+      for (const e of batch) await walk(e);
+    }
+  };
+  for (const e of entries) await walk(e);
+  return out;
+}
+// Drop anywhere on the page
+let dragDepth = 0;
+document.addEventListener('dragenter', e => {
+  if (![...e.dataTransfer.types].includes('Files')) return;
+  dragDepth++; setData(true); drop.classList.add('over');
+});
+document.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; drop.classList.remove('over'); } });
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault(); dragDepth = 0; drop.classList.remove('over');
+  droppedFiles(e.dataTransfer).then(runImport);
+});
+
+// Remove imported runs: a second click within 4 s confirms
+const resetBtn = document.getElementById('dReset');
+let resetTimer;
+resetBtn.onclick = async () => {
+  if (!resetBtn.classList.contains('armed')) {
+    resetBtn.dataset.label = resetBtn.textContent;
+    resetBtn.textContent = 'Click again to confirm';
+    resetBtn.classList.add('armed');
+    resetTimer = setTimeout(() => { resetBtn.classList.remove('armed'); resetBtn.textContent = resetBtn.dataset.label; }, 4000);
+    return;
+  }
+  clearTimeout(resetTimer);
+  await RunData.reset();
+  RunData.setDemo(false);
+  sessionStorage.setItem('runmap-toast', 'Imported activities removed');
+  location.reload();
+};
+
+// Message left by the previous page (after an import or a reset)
+const toastMsg = sessionStorage.getItem('runmap-toast');
+if (toastMsg) {
+  sessionStorage.removeItem('runmap-toast');
+  const t = document.getElementById('toast');
+  t.textContent = toastMsg; t.hidden = false;
+  setTimeout(() => { t.style.opacity = 0; setTimeout(() => { t.hidden = true; }, 400); }, 3500);
+}
 
 document.getElementById('toggle').onclick =() => document.getElementById('panel').classList.toggle('collapsed');
 </script>

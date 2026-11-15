@@ -46,7 +46,7 @@
   // base : years + sources + place (without brushing) — context for the time charts
   // sel  : base + brushing — used by gauges and records
   function datasets() {
-    const base = runs.filter(r => r.year >= state.yMin && r.year <= state.yMax && state.sources.has(r.src) &&
+    const base = runs.filter(r => r.year >= state.yMin && r.year <= state.yMax && keep(r) &&
       (state.zone == null || (r.zs || []).includes(state.zone)));
     const [dA, dB] = dateRange();
     const sel = base.filter(r => r.d >= dA && r.d <= dB);
@@ -171,7 +171,7 @@
   function renderCalendar() {
     const el = $('chCal');
     el.innerHTML = '';
-    const pool = runs.filter(r => state.sources.has(r.src) && (state.zone == null || (r.zs || []).includes(state.zone)));
+    const pool = runs.filter(r => keep(r) && (state.zone == null || (r.zs || []).includes(state.zone)));
     const years = [...new Set(pool.map(r => r.year))].sort();
     if (!years.length) return;
     // The calendar follows the end of the filtered period, unless navigated manually
@@ -275,7 +275,7 @@
     el.innerHTML = '';
     // 1. Goal: monthly (yearly goal / 12) if a month is selected, otherwise yearly
     const sc = volScope(dA, dB);
-    const pool = runs.filter(r => state.sources.has(r.src) && (state.zone == null || (r.zs || []).includes(state.zone)));
+    const pool = runs.filter(r => keep(r) && (state.zone == null || (r.zs || []).includes(state.zone)));
     if (sc.level === 'day') {
       const goal = state.goal / 12;
       const km = d3.sum(sel, r => r.km);
@@ -295,7 +295,7 @@
     el.appendChild(gauge(active / nWeeks, Math.round(100 * active / nWeeks) + '%', 'Consistency',
       `${active} / ${nWeeks} weeks`));
     // 3. Exploration: share of the period's km run on paths never taken before
-    //    (nk / gk computed by build_data.py, in chronological order of all runs)
+    //    (nk / gk: computed in chronological order of all runs, see importer.js)
     const newKm = d3.sum(sel, r => r.nk || 0), gpsKm = d3.sum(sel, r => r.gk || 0);
     const share = gpsKm ? newKm / gpsKm : 0;
     const ex = gauge(share, (share < .1 && share > 0 ? nf(100 * share, 1) : Math.round(100 * share)) + '%',
@@ -313,8 +313,10 @@
     const el = $('chRecords');
     el.innerHTML = '';
     const best = (arr, key, dir = 1) => arr.filter(r => r[key]).sort((a, b) => dir * (a[key] - b[key]))[0];
-    const longest = best(sel, 'km', -1), b5 = best(sel, 'b5'), b10 = best(sel, 'b10'), dp = best(sel, 'dp', -1);
-    const timed = sel.filter(r => r.dur && r.km);
+    // Distance and pace records only make sense for runs (a bike ride would win them all)
+    const ran = sel.filter(r => r.sp === 'run');
+    const longest = best(ran, 'km', -1), b5 = best(ran, 'b5'), b10 = best(ran, 'b10'), dp = best(sel, 'dp', -1);
+    const timed = ran.filter(r => r.dur && r.km);
     const totDp = d3.sum(sel, r => r.dp || 0);
     const items = [
       ['Longest run', longest && nf(longest.km, 1) + ' km', longest],
