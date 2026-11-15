@@ -79,6 +79,14 @@
 .records .rl { display: block; font-size: 11px; color: var(--muted); }
 .records .rd { display: block; font-size: 10px; color: var(--muted); opacity: .7; }
 
+/* Records: activity type icons in the card header */
+.card-records .card-h { align-items: center; }   /* icons centred on the title */
+.rec-sports { display: inline-flex; gap: 1px; margin: -6px -5px -6px auto; }   /* right edge = card content edge */
+.rec-sports .rs { width: 24px; height: 24px; }
+.rec-sports .rs svg { width: 16px; height: 16px; }
+.rec-sports .rs.on { color: var(--accent); background: var(--chip); }
+.rec-sports .rs:disabled { opacity: .25; cursor: default; background: none; }
+
 /* Calendar */
 .cal-nav { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; }
 .cal-nav .icon-btn { width: 22px; height: 22px; font-size: 16px; }

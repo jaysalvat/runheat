@@ -313,24 +313,85 @@
   }
 
   // ---------- Records ----------
+  // Records adapt to the activity type picked with the icons in the card header
+  let recSport = 'run';
+  function renderRecordSports(sel) {
+    const box = $('recSports');
+    const present = new Set(runs.map(r => r.sp));
+    if (!present.has(recSport)) recSport = Object.keys(SPORTS).find(sp => present.has(sp)) || 'run';
+    box.innerHTML = '';
+    for (const sp of Object.keys(SPORTS)) {
+      const b = document.createElement('button');
+      b.className = 'icon-btn rs' + (sp === recSport ? ' on' : '');
+      b.disabled = !present.has(sp);
+      b.title = present.has(sp) ? `${SPORTS[sp].label} records` : `${SPORTS[sp].label} · none in your data`;
+      b.setAttribute('aria-label', b.title);
+      b.setAttribute('aria-pressed', sp === recSport);
+      b.innerHTML = sportIcon(sp);
+      b.onclick = () => { recSport = sp; renderRecordSports(sel); renderRecords(sel); };
+      box.appendChild(b);
+    }
+  }
+
   function renderRecords(sel) {
     const el = $('chRecords');
     el.innerHTML = '';
+    const sp = recSport, word = SPORTS[sp].word;
+    const P = sel.filter(r => r.sp === sp);
     const best = (arr, key, dir = 1) => arr.filter(r => r[key]).sort((a, b) => dir * (a[key] - b[key]))[0];
-    // Distance and pace records only make sense for runs (a bike ride would win them all)
-    const ran = sel.filter(r => r.sp === 'run');
-    const longest = best(ran, 'km', -1), b5 = best(ran, 'b5'), b10 = best(ran, 'b10'), dp = best(sel, 'dp', -1);
-    const timed = ran.filter(r => r.dur && r.km);
-    const totDp = d3.sum(sel, r => r.dp || 0);
-    const items = [
-      ['Longest run', longest && nf(longest.km, 1) + ' km', longest],
-      ['Best 5 km', b5 && fmtDur(b5.b5), b5],
-      ['Best 10 km', b10 && fmtDur(b10.b10), b10],
-      ['Biggest climb', dp && nf(dp.dp) + ' m', dp],
-      ['Average pace', timed.length ? fmtPace(d3.sum(timed, r => r.dur), d3.sum(timed, r => r.km)) : null, null,
-        timed.length ? fmtDur(d3.sum(timed, r => r.dur)) + ' of running' : ''],
-      ['Total climb', totDp ? nf(totDp / EVEREST_M, 1) + ' × Everest' : null, null, totDp ? nf(totDp) + ' m' : ''],
-    ];
+    const bestBy = (arr, f) => arr.filter(r => f(r) != null).sort((a, b) => f(b) - f(a))[0];
+    const timed = P.filter(r => r.dur && r.km);
+    const totDur = d3.sum(timed, r => r.dur), totKm = d3.sum(timed, r => r.km);
+    const totDp = d3.sum(P, r => r.dp || 0), allKm = d3.sum(P, r => r.km);
+    const longest = best(P, 'km', -1), longTime = best(P, 'dur', -1), dp = best(P, 'dp', -1);
+    const speed = (dur, km) => nf(km / (dur / 3600), 1) + ' km/h';
+    const per100 = (dur, km) => { const t = Math.round(dur / (km * 10)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')} /100 m`; };
+    const dist = km => (sp === 'swim' && km < 10 ? nf(km * 1000) + ' m' : nf(km, 1) + ' km');
+    const climb = ['Total climb', totDp ? nf(totDp / EVEREST_M, 1) + ' × Everest' : null, null, totDp ? nf(totDp) + ' m' : ''];
+    const total = ['Total distance', P.length ? dist(allKm) : null, null, P.length ? `${nf(P.length)} ${word}${P.length > 1 ? 's' : ''}`.replace('activitys', 'activities') : ''];
+    let items;
+    if (sp === 'run') {
+      const b5 = best(P, 'b5'), b10 = best(P, 'b10');
+      items = [
+        ['Longest run', longest && dist(longest.km), longest],
+        ['Best 5 km', b5 && fmtDur(b5.b5), b5],
+        ['Best 10 km', b10 && fmtDur(b10.b10), b10],
+        ['Biggest climb', dp && nf(dp.dp) + ' m', dp],
+        ['Average pace', timed.length ? fmtPace(totDur, totKm) : null, null, timed.length ? fmtDur(totDur) + ' of running' : ''],
+        climb,
+      ];
+    } else if (sp === 'ride') {
+      // fastest = best average speed on a ride of at least 10 km (short rides are too noisy)
+      const fast = bestBy(timed.filter(r => r.km >= 10), r => r.km / r.dur);
+      items = [
+        ['Longest ride', longest && dist(longest.km), longest],
+        ['Fastest ride', fast && speed(fast.dur, fast.km), fast],
+        ['Longest time', longTime && fmtDur(longTime.dur), longTime],
+        ['Biggest climb', dp && nf(dp.dp) + ' m', dp],
+        ['Average speed', timed.length ? speed(totDur, totKm) : null, null, timed.length ? fmtDur(totDur) + ' riding' : ''],
+        climb,
+      ];
+    } else if (sp === 'swim') {
+      const fast = bestBy(timed.filter(r => r.km >= .4), r => r.km / r.dur);
+      items = [
+        ['Longest swim', longest && dist(longest.km), longest],
+        ['Best pace', fast && per100(fast.dur, fast.km), fast],
+        ['Longest time', longTime && fmtDur(longTime.dur), longTime],
+        ['Average pace', timed.length ? per100(totDur, totKm) : null, null, timed.length ? fmtDur(totDur) + ' swimming' : ''],
+        total,
+        ['Time in the water', timed.length ? fmtDur(totDur) : null],
+      ];
+    } else {   // walk / hike, other
+      items = [
+        [sp === 'walk' ? 'Longest walk' : 'Longest activity', longest && dist(longest.km), longest],
+        ['Longest time', longTime && fmtDur(longTime.dur), longTime],
+        ['Biggest climb', dp && nf(dp.dp) + ' m', dp],
+        [sp === 'walk' ? 'Average pace' : 'Average speed', timed.length ? (sp === 'walk' ? fmtPace(totDur, totKm) : speed(totDur, totKm)) : null,
+          null, timed.length ? fmtDur(totDur) + ' in total' : ''],
+        total,
+        climb,
+      ];
+    }
     items.forEach(([label, val, run, extra]) => {
       const li = document.createElement('li');
       li.innerHTML = `<span class="rv"></span><span class="rl"></span><span class="rd"></span>`;
@@ -345,6 +406,7 @@
       el.appendChild(li);
     });
   }
+
 
   // ---------- Context (period, place) ----------
   function renderContext(dA, dB) {
@@ -378,6 +440,7 @@
     renderContext(dA, dB);
     renderCalendar();
     renderGauges(sel, dA, dB);
+    renderRecordSports(sel);
     renderRecords(sel);
     renderVolume(sel, dA, dB);   // last: it takes the height left free by the others
   }
