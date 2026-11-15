@@ -37,8 +37,9 @@
 </script>
 
 <div class="label"><span>Places</span><span>{app.zones.length}</span></div>
-<input type="search" class="filter" placeholder="Filter places…" autocomplete="off" aria-label="Filter places"
-  bind:value={query} onkeydown={e => e.key === 'Enter' && shown[0] && pick(shown[0])}>
+<input type="search" class="filter" id="placeFilter" placeholder="Filter places…" autocomplete="off" aria-label="Filter places"
+  title="Filter places" aria-keyshortcuts="F" bind:value={query}
+  onkeydown={e => { if (e.key === 'Enter' && shown[0]) pick(shown[0]); if (e.key === 'Escape') e.currentTarget.blur(); }}>
 <div class="zones" bind:this={list}>
   {#each shown as row (row.i)}
     {@const n = perZone[row.i] || 0}

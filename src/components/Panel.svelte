@@ -15,7 +15,7 @@
   const s = app.settings;
   let collapsed = $state(false);
 
-  const baseOptions = Object.entries(BASES).map(([value, b]) => ({ value, label: b.label }));
+  const baseOptions = Object.entries(BASES).map(([value, b], i) => ({ value, label: b.label, title: `${b.label} map`, key: String(i + 1) }));
   const km = $derived(Math.round(app.sel.reduce((t, r) => t + r.km, 0)));
   const nBySport = $derived.by(() => {
     const c = {};
@@ -27,15 +27,40 @@
   // Set membership as a checkbox (function binding: get, set)
   const member = (set, key) => [() => set.has(key), on => (on ? set.add(key) : set.delete(key))];
   const togglePanel = name => (app.panel = app.panel === name ? null : name);
+
+  // Keyboard shortcuts (shown in the tooltips through aria-keyshortcuts). Ignored while typing
+  // in a field or with a modifier, so browser shortcuts keep working.
+  function shortcut(e) {
+    if (e.metaKey || e.ctrlKey || e.isComposing) return;
+    // typing in a field (checkboxes, sliders and colour pickers don't count: they keep focus after a click)
+    if (e.target.closest?.('input:not([type=checkbox], [type=radio], [type=range], [type=color]), textarea, select, [contenteditable]')) return;
+    // Alt + digit: show / hide a layer (e.code: on a Mac, Alt changes the character typed)
+    if (e.altKey) {
+      const n = /^Digit([1-9])$/.exec(e.code)?.[1], l = n && LAYERS[n - 1];
+      if (l) { s[l.key] = !s[l.key]; e.preventDefault(); }
+      return;
+    }
+    const k = e.key.toLowerCase(), bases = Object.keys(BASES);
+    if (k === 'f') {
+      collapsed = false;
+      requestAnimationFrame(() => { const f = document.getElementById('placeFilter'); f?.focus(); f?.select(); });
+    } else if (k === 's') s.stats = !s.stats;
+    else if (k === ',') togglePanel('settings');
+    else if (/^[1-9]$/.test(k) && bases[k - 1]) s.base = bases[k - 1];
+    else return;
+    e.preventDefault();
+  }
 </script>
+
+<svelte:window onkeydown={shortcut} />
 
 <div class="floating panel" class:collapsed id="panel">
   <h1>
     <span>My runs{#if app.info.demo}<span class="demo">Demo</span>{/if}</span>
     <span class="actions">
-      <IconButton label="Import runs" on={app.panel === 'data'} onclick={() => togglePanel('data')}><Icon name="upload" /></IconButton>
-      <IconButton label="Statistics" on={s.stats} onclick={() => (s.stats = !s.stats)}><Icon name="chart" /></IconButton>
-      <IconButton label="Display settings" on={app.panel === 'settings'} onclick={() => togglePanel('settings')}><Icon name="gear" /></IconButton>
+      <IconButton label="Import runs" accent={app.info.demo || !app.runs.length} on={app.panel === 'data'} onclick={() => togglePanel('data')}><Icon name="upload" /></IconButton>
+      <IconButton label="Statistics" aria-keyshortcuts="S" on={s.stats} onclick={() => (s.stats = !s.stats)}><Icon name="chart" /></IconButton>
+      <IconButton label="Display settings" aria-keyshortcuts="," on={app.panel === 'settings'} onclick={() => togglePanel('settings')}><Icon name="gear" /></IconButton>
       <span class="collapse"><IconButton label="Collapse panel" onclick={() => (collapsed = !collapsed)}>▾</IconButton></span>
     </span>
   </h1>
@@ -51,8 +76,8 @@
 
     <div class="label"><span>Layers</span></div>
     <div class="grid2">
-      {#each LAYERS as l (l.key)}
-        <Toggle bind:checked={s[l.key]} title={l.title} label={l.label} />
+      {#each LAYERS as l, i (l.key)}
+        <Toggle bind:checked={s[l.key]} title={l.title} label={l.label} shortcut="Alt+{i + 1}" />
       {/each}
     </div>
 

@@ -1,11 +1,11 @@
 <script>
-  // One choice among a few: [{ value, label, title? }]
+  // One choice among a few: [{ value, label, title?, key? }] (key: keyboard shortcut, shown in the tooltip)
   let { options, value = $bindable() } = $props();
 </script>
 
 <div class="seg" role="group">
   {#each options as o (o.value)}
-    <button class:on={value === o.value} title={o.title} aria-pressed={value === o.value}
+    <button class:on={value === o.value} title={o.title} aria-keyshortcuts={o.key} aria-pressed={value === o.value}
       onclick={() => (value = o.value)}>{o.label}</button>
   {/each}
 </div>

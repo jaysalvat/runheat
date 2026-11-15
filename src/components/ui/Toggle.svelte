@@ -1,9 +1,9 @@
 <script>
   // Toggle button: a hidden checkbox, the label acts as the button (filled when checked)
-  let { checked = $bindable(false), disabled = false, title = '', label = '', compact = false, onchange, children } = $props();
+  let { checked = $bindable(false), disabled = false, title = '', label = '', compact = false, shortcut, onchange, children } = $props();
 </script>
 
-<label class="toggle" class:compact {title}>
+<label class="toggle" class:compact {title} aria-keyshortcuts={shortcut}>
   <input type="checkbox" bind:checked {disabled} aria-label={label || title} {onchange}>
   {#if children}{@render children()}{:else}{label}{/if}
 </label>

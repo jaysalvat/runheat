@@ -12,7 +12,8 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
-  font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
+  font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  text-wrap: pretty; }   /* no lone word on the last line */
 
 /* Floating panels over the map (side panel, settings, import, stats) */
 .floating { position: absolute; z-index: 2; padding: 18px; max-height: calc(100% - 32px); overflow: auto;
