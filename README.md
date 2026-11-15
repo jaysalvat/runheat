@@ -83,6 +83,10 @@ maplibre-contour for the contour lines.
 
 `npm run build` produces a static site in `dist/` that works from any folder or subdomain.
 
+Every push on `main` is built and published on **GitHub Pages** by
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) (lint included). To enable it once: repository
+_Settings → Pages → Source: GitHub Actions_. The workflow passes the Pages address as `SITE_URL`.
+
 Link previews (Open Graph) need absolute URLs. Set the address of your site at build time so it doesn't
 have to live in the repository, either in the environment or in a git-ignored `.env` file:
 
