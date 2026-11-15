@@ -66,6 +66,12 @@
   .bars { display: flex; align-items: flex-end; gap: 2px; height: 34px; margin-top: 4px; }
   .bars { cursor: pointer; }
   .bars-wrap { position: relative; }
+  .hnav { align-items: center; min-height: 22px; }
+  .htitle { display: inline-flex; align-items: center; gap: 2px; }
+  .htitle .back { width: 22px; height: 22px; margin-left: -4px; font-size: 18px; line-height: 1; }
+  .htitle .back[hidden] { display: none; }
+  #hTitle { text-transform: capitalize; }
+  #yRange[hidden] { display: none; }
   .bar-labels { display: flex; gap: 2px; margin-top: 3px; }
   .bar-labels span { flex: 1; text-align: center; font-size: 10px; color: var(--muted);
     font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
@@ -223,13 +229,14 @@
       <input type="checkbox" id="showExplore">New paths</label>
   </div>
 
-  <div class="label"><span>Years</span><span id="yLabel"></span></div>
+  <div class="label hnav"><span class="htitle"><button class="icon-btn back" id="hBack" aria-label="Back" title="Back" hidden>‹</button>
+    <span id="hTitle">Years</span></span><span id="yLabel"></span></div>
   <div class="bars-wrap">
     <div class="bars" id="bars"></div>
     <div class="bar-labels" id="barLabels"></div>
     <div class="bar-tip" id="barTip" hidden></div>
   </div>
-  <div class="range">
+  <div class="range" id="yRange">
     <div class="track"></div>
     <input type="range" id="yMin"><input type="range" id="yMax">
   </div>
@@ -503,6 +510,7 @@ map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
 
 let runs, linesGeo, pointsGeo, rawGeo, exploreGeo, zone, bars;
 let yearAnchor = null;  // last clicked year, anchor for shift + click
+let yearSpan = [0, 0];   // first and last year with data
 
 // Densest area (~5 km grid) for the initial view
 function mainZone(runs) {
@@ -653,11 +661,7 @@ function apply() {
   document.getElementById('yLabel').textContent = state.dFrom
     ? periodLabel(state.dFrom, state.dTo)
     : state.yMin === state.yMax ? state.yMin : `${state.yMin} – ${state.yMax}`;
-  // active years = those covered by the range (years or brushing)
-  const yA = Math.floor(dA / 10000), yB = Math.floor(dB / 10000);
-  bars.querySelectorAll('div').forEach(d => d.classList.toggle('off', +d.dataset.y < yA || +d.dataset.y > yB));
-  document.querySelectorAll('#barLabels span').forEach(s =>
-    s.classList.toggle('on', +s.dataset.y >= yA && +s.dataset.y <= yB));
+  renderBars();
   // number of runs per place under the current filters
   const perZone = {};
   // a run counts in every place where it covered ≥ 1 km
@@ -692,6 +696,134 @@ function apply() {
   window.renderStats?.(statSel);
 }
 
+// ---------- Period navigator (years → months → days) ----------
+// The level follows the selection: several years → years; one year → its months;
+// a period inside one month → its days. Click a bar to go down, ‹ to go back up.
+const ymd = (y, m, d) => y * 10000 + m * 100 + d;
+const daysIn = (y, m) => new Date(y, m, 0).getDate();
+function navLevel() {
+  const [dA, dB] = dateRange();
+  if (state.dFrom && Math.floor(dA / 100) === Math.floor(dB / 100))
+    return { level: 'day', y: Math.floor(dA / 10000), m: Math.floor(dA / 100) % 100 };
+  if (state.yMin === state.yMax) return { level: 'month', y: state.yMin };
+  if (state.dFrom && Math.floor(dA / 10000) === Math.floor(dB / 10000)) return { level: 'month', y: Math.floor(dA / 10000) };
+  return { level: 'year' };
+}
+// Level shown. Kept as is while you use the navigator itself (so the range slider never
+// switches level under your finger); re-derived from the selection when it changes elsewhere.
+let nav = { level: 'year' }, navOwn = false, navKey = '';
+const navApply = () => { navOwn = true; apply(); };
+function navBack() {
+  const nv = nav;
+  state.dFrom = state.dTo = null;
+  if (nv.level === 'day') state.yMin = state.yMax = nv.y;            // → months of that year
+  else { [state.yMin, state.yMax] = yearSpan; yearAnchor = null; }    // → all years
+  nav = nv.level === 'day' ? { level: 'month', y: nv.y } : { level: 'year' };
+  highlightRun(null);
+  navApply();
+}
+function renderBars() {
+  const key = [state.yMin, state.yMax, state.dFrom, state.dTo].join();
+  if (!navOwn && key !== navKey) nav = navLevel();   // selection changed outside the navigator
+  navOwn = false; navKey = key;
+  const nv = nav, [dA, dB] = dateRange();
+  const pool = runs.filter(r => keep(r) && (state.zone == null || (r.zs || []).includes(state.zone)));
+  const monthName = (m, style) => new Date(2000, m - 1, 1).toLocaleDateString(LOCALE, { month: style });
+  let bins;   // { key, label, title, a, b (YYYYMMDD range), runs }
+  if (nv.level === 'year') {
+    bins = [];
+    for (let y = yearSpan[0]; y <= yearSpan[1]; y++)
+      bins.push({ key: y, label: String(y).slice(2), title: String(y), a: ymd(y, 1, 1), b: ymd(y, 12, 31) });
+  } else if (nv.level === 'month') {
+    bins = Array.from({ length: 12 }, (_, i) => ({ key: i + 1, label: monthName(i + 1, 'narrow'),
+      title: `${monthName(i + 1, 'long')} ${nv.y}`, a: ymd(nv.y, i + 1, 1), b: ymd(nv.y, i + 1, 31) }));
+  } else {
+    bins = Array.from({ length: daysIn(nv.y, nv.m) }, (_, i) => {
+      const d = i + 1, date = new Date(nv.y, nv.m - 1, d);
+      return { key: d, label: d === 1 || d % 5 === 0 ? String(d) : '', a: ymd(nv.y, nv.m, d), b: ymd(nv.y, nv.m, d),
+        title: date.toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' }) };
+    });
+  }
+  bins.forEach(bn => { bn.runs = pool.filter(r => r.d >= bn.a && r.d <= bn.b); bn.km = bn.runs.reduce((s, r) => s + r.km, 0); });
+  const max = Math.max(1, ...bins.map(bn => bn.km));
+
+  // Title + back
+  document.getElementById('hTitle').textContent = nv.level === 'year' ? 'Years'
+    : nv.level === 'month' ? String(nv.y) : `${monthName(nv.m, 'long')} ${nv.y}`;
+  document.getElementById('hBack').hidden = nv.level === 'year';
+  // the right-hand label only says what the title doesn't (a range of years, a day…)
+  const yl = document.getElementById('yLabel');
+  if (yl.textContent === document.getElementById('hTitle').textContent) yl.textContent = '';
+
+  const tip = document.getElementById('barTip'), labels = document.getElementById('barLabels');
+  bars.innerHTML = ''; labels.innerHTML = '';
+  bins.forEach(bn => {
+    const d = document.createElement('div');
+    d.innerHTML = '<span class="fill"></span>';
+    d.firstChild.style.height = (100 * bn.km / max) + '%';
+    const inSel = bn.b >= dA && bn.a <= dB;
+    d.classList.toggle('off', !inSel);
+    const lab = document.createElement('span');
+    lab.textContent = bn.label;
+    lab.classList.toggle('on', inSel && (nv.level === 'year' ? state.yMin !== yearSpan[0] || state.yMax !== yearSpan[1] : !!state.dFrom));
+    labels.appendChild(lab);
+    // Instant tooltip (the native title takes ~1 s to appear)
+    d.onmouseenter = () => {
+      const n = bn.runs.length;
+      tip.innerHTML = `<b>${bn.title}</b> · ` + (n ? `${plural(n, 'activity').replace('activitys', 'activities')} · ${Math.round(bn.km).toLocaleString(LOCALE)} km` : 'nothing');
+      tip.hidden = false;
+      const wrap = bars.parentElement.getBoundingClientRect(), r = d.getBoundingClientRect();
+      const half = tip.offsetWidth / 2;
+      tip.style.left = Math.min(Math.max(r.left + r.width / 2 - wrap.left, half), wrap.width - half) + 'px';
+      lab.classList.add('hover');
+    };
+    d.onmouseleave = () => { tip.hidden = true; lab.classList.remove('hover'); };
+    d.onclick = e => {
+      tip.hidden = true;
+      if (nv.level === 'year') {
+        if (e.shiftKey && yearAnchor !== null) {          // shift + click: range of years, stays on years
+          state.yMin = Math.min(yearAnchor, bn.key); state.yMax = Math.max(yearAnchor, bn.key);
+        } else {                                           // click: that year → its months
+          state.yMin = state.yMax = bn.key; yearAnchor = bn.key;
+          nav = { level: 'month', y: bn.key };
+        }
+        state.dFrom = state.dTo = null;
+      } else if (nv.level === 'month') {                   // a month → its days
+        state.dFrom = bn.a; state.dTo = ymd(nv.y, bn.key, daysIn(nv.y, bn.key));
+        nav = { level: 'day', y: nv.y, m: bn.key };
+      } else {                                             // a day: select it (again: whole month)
+        const only = state.dFrom === bn.a && state.dTo === bn.b;
+        state.dFrom = only ? ymd(nv.y, nv.m, 1) : bn.a;
+        state.dTo = only ? ymd(nv.y, nv.m, daysIn(nv.y, nv.m)) : bn.b;
+        highlightRun(only ? null : bn.runs[0] || null);
+      }
+      navApply();
+    };
+    d.onmousedown = e => { if (e.shiftKey) e.preventDefault(); };  // prevents text selection
+    bars.appendChild(d);
+  });
+  // Range slider, at every level: years, months of the year, days of the month
+  const lo = document.getElementById('yMin'), hi = document.getElementById('yMax');
+  const n = bins.length;
+  lo.min = hi.min = 1; lo.max = hi.max = n; lo.step = hi.step = 1;
+  const first = bins.findIndex(bn => bn.b >= dA), last = bins.findLastIndex(bn => bn.a <= dB);
+  const a = first < 0 ? 1 : first + 1, b = last < 0 ? n : last + 1;
+  // don't fight the thumbs while they're being dragged
+  if (document.activeElement !== lo && document.activeElement !== hi) { lo.value = a; hi.value = b; }
+  lo.oninput = hi.oninput = () => {
+    let i = +lo.value, j = +hi.value;
+    if (i > j) [i, j] = [j, i];
+    const A = bins[i - 1], B = bins[j - 1];
+    if (nv.level === 'year') { state.yMin = A.key; state.yMax = B.key; state.dFrom = state.dTo = null; }
+    else if (nv.level === 'month') {
+      if (i === 1 && j === 12) state.dFrom = state.dTo = null;   // whole year
+      else { state.dFrom = A.a; state.dTo = ymd(nv.y, B.key, daysIn(nv.y, B.key)); }
+    } else { state.dFrom = A.a; state.dTo = B.b; }
+    navApply();
+  };
+}
+document.getElementById('hBack').onclick = navBack;
+
 // Active date range (YYYYMMDD): chart brushing, otherwise whole years
 function dateRange() {
   return state.dFrom ? [state.dFrom, state.dTo] : [state.yMin * 10000 + 101, state.yMax * 10000 + 1231];
@@ -702,7 +834,7 @@ function periodLabel(a, b) {
   if (Math.floor(b / 10000) === y && a % 10000 === 101 && b % 10000 === 1231) return String(y);
   if (Math.floor(b / 100) === Math.floor(a / 100) && a % 100 === 1 && b % 100 === new Date(y, m, 0).getDate())
     return new Date(y, m - 1, 1).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' });
-  return `${fmtD(a)} – ${fmtD(b)}`;
+  return a === b ? fmtD(a) : `${fmtD(a)} – ${fmtD(b)}`;
 }
 const fmtD = d => new Date(Math.floor(d / 10000), Math.floor(d / 100) % 100 - 1, d % 100)
   .toLocaleDateString(LOCALE, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -787,63 +919,9 @@ RunData.load(p => { busy.hidden = false; busy.textContent = p.text; }).then(data
     });
   }
 
-  // Histogram by year
-  const perYear = {}, kmYear = {};
-  runs.forEach(r => {
-    perYear[r.year] = (perYear[r.year] || 0) + 1;
-    kmYear[r.year] = (kmYear[r.year] || 0) + r.km;
-  });
-  const maxY = Math.max(...Object.values(perYear));
+  // Histogram (years → months → days): drawn by renderBars() on every apply()
+  yearSpan = [y0, y1];
   bars = document.getElementById('bars');
-  const labels = document.getElementById('barLabels');
-  const tip = document.getElementById('barTip');
-  for (let y = y0; y <= y1; y++) {
-    const d = document.createElement('div');
-    const fill = document.createElement('span');
-    fill.className = 'fill';
-    fill.style.height = (100 * (perYear[y] || 0) / maxY) + '%';
-    d.appendChild(fill);
-    d.dataset.y = y;
-    const lab = document.createElement('span');
-    lab.textContent = String(y).slice(2);
-    lab.dataset.y = y;
-    labels.appendChild(lab);
-    // Instant tooltip (the native title takes ~1 s to appear)
-    d.onmouseenter = () => {
-      tip.innerHTML = `<b>${y}</b> · ${perYear[y] || 0} runs · ${Math.round(kmYear[y] || 0).toLocaleString(LOCALE)} km`;
-      tip.hidden = false;
-      const wrap = bars.parentElement.getBoundingClientRect(), r = d.getBoundingClientRect();
-      const half = tip.offsetWidth / 2;
-      const x = Math.min(Math.max(r.left + r.width / 2 - wrap.left, half), wrap.width - half);
-      tip.style.left = x + 'px';
-      lab.classList.add('hover');
-    };
-    d.onmouseleave = () => { tip.hidden = true; lab.classList.remove('hover'); };
-    // Click: this year only; click it again: all years
-    // Shift + click: range between the last clicked year and this one
-    d.onclick = e => {
-      if (e.shiftKey && yearAnchor !== null) {
-        state.yMin = Math.min(yearAnchor, y); state.yMax = Math.max(yearAnchor, y);
-      } else {
-        const only = state.yMin === y && state.yMax === y;
-        state.yMin = only ? y0 : y; state.yMax = only ? y1 : y;
-        yearAnchor = only ? null : y;
-      }
-      state.dFrom = state.dTo = null;
-      yMin.value = state.yMin; yMax.value = state.yMax;
-      apply();
-    };
-    d.onmousedown = e => { if (e.shiftKey) e.preventDefault(); };  // prevents text selection
-    bars.appendChild(d);
-  }
-  const yMin = document.getElementById('yMin'), yMax = document.getElementById('yMax');
-  for (const i of [yMin, yMax]) { i.min = y0; i.max = y1; i.step = 1; }
-  yMin.value = y0; yMax.value = y1;
-  yMin.oninput = yMax.oninput = () => {
-    let a = +yMin.value, b = +yMax.value;
-    if (a > b) [a, b] = [b, a];
-    state.yMin = a; state.yMax = b; state.dFrom = state.dTo = null; apply();
-  };
 
   // Activity types: every type is listed (icons), the ones missing from your data are greyed out
   // (older data may still say "hike": it counts as a walk)
