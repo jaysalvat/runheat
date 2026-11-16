@@ -35,9 +35,9 @@ export const BASES = {
   standard: {
     label: 'Streets',
     style: VOYAGER_STYLE,
-    // Strava-like bright orange on every layer; white casing under the dashes
-    line: '#fc4c02',
-    glow: '#fc4c02',
+    // the app's orange on every layer; white casing under the dashes
+    line: '#ff6a2b',
+    glow: '#ff6a2b',
     lineOpacity: [0.15, 0.3, 0.55],
     glowOpacity: [0.04, 0.07],
     casing: '#ffffff',

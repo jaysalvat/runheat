@@ -54,6 +54,8 @@ function loadSettings() {
   };
   for (const k of Object.keys(DEFAULT_COLORS)) if (!isHex(s.colors[k])) s.colors[k] = DEFAULT_COLORS[k];
   if (!isHex(s.accent)) s.accent = DEFAULT_ACCENT;
+  // Migration: the former default Streets colour follows the new default
+  if (s.colors.map?.toLowerCase() === '#fc4c02') s.colors.map = DEFAULT_COLORS.map;
   // Migration: saves from before the 'topo' basemap was dropped get Streets with hillshade and contours
   if (s.base === 'topo') {
     s.base = 'standard';
