@@ -6,7 +6,7 @@ import { ymd } from './format.js';
 import { buildGeo, mainArea } from './geo.js';
 import { RunData } from './data.js';
 
-const DEFAULT_RELIEF = Object.fromEntries(Object.keys(BASES).map((b) => [b, false]));
+const DEFAULT_RELIEF = Object.fromEntries(Object.keys(BASES).map((b) => [b, true]));
 
 const STORAGE_KEY = 'runmap';
 const DEFAULT_SETTINGS = {
@@ -26,8 +26,8 @@ const DEFAULT_SETTINGS = {
   // hillshade and contour lines, per basemap
   relief: { ...DEFAULT_RELIEF },
   contours: { ...DEFAULT_RELIEF },
-  globe: false, // globe projection when zoomed out
-  terrain: false, // 3D relief, map tilted
+  globe: true, // globe projection when zoomed out
+  terrain: true, // 3D relief, map tilted
   outline: 'tint', // Routes outline: 'dark' | 'tint' | 'none'
   goal: 1000,
   stats: false,
