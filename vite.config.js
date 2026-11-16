@@ -28,5 +28,7 @@ export default defineConfig(({ mode }) => ({
   // Relative asset paths: the built site works from any folder or subdomain
   base: './',
   worker: { format: 'es' },
+  // Reachable from a phone on the same network (http://<computer>.local:5173 or its IP)
+  server: { host: true, allowedHosts: ['.local'] },
   build: { chunkSizeWarningLimit: 1500 }, // MapLibre alone is ~1.1 MB (~300 kB gzipped)
 }));

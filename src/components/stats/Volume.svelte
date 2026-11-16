@@ -112,8 +112,8 @@
       .attr('fill', css('--muted'))
       .attr('font-size', 9)
       .text('km');
-    // day labels: one in `every` when they don't all fit (~28 px each)
-    const every = Math.ceil(bins.length / Math.max(1, Math.floor((W - m.l) / 28)));
+    // labels: one in `every` when they don't all fit (~28 px for a day, ~34 px for a year or a month)
+    const every = Math.ceil(bins.length / Math.max(1, Math.floor((W - m.l) / (s.level === 'day' ? 28 : 34))));
     svg
       .append('g')
       .attr('class', 'axis')
@@ -122,7 +122,7 @@
         axisBottom(x)
           .tickSize(0)
           .tickPadding(6)
-          .tickFormat((_, i) => (i % every === 0 || s.level !== 'day' ? bins[i].label : '')),
+          .tickFormat((_, i) => (i % every === 0 ? bins[i].label : '')),
       )
       .call((g) => g.select('.domain').remove());
 

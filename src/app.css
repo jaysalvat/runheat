@@ -3,6 +3,7 @@
 :root {
   --bg: #0b0d10;
   --panel: rgba(16, 19, 24, 0.88);
+  --sheet-bg: rgb(16, 19, 24); /* phone sheets: opaque, so their sticky top hides the content below */
   --text: #e8eaed;
   --muted: #8b939e;
   --line: #2a3038;
@@ -25,6 +26,9 @@ html,
 body {
   margin: 0;
   height: 100%;
+  /* the page itself never scrolls (full-screen map): no rubber band on iOS either */
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--bg);
   color: var(--text);
   font:
@@ -43,6 +47,7 @@ body {
   padding: 18px;
   max-height: calc(100% - 32px);
   overflow: auto;
+  overscroll-behavior: contain; /* scrolling a panel to its end doesn't move the page */
   background: var(--panel);
   backdrop-filter: blur(10px);
   border: 1px solid var(--panel-border);
@@ -65,11 +70,77 @@ body {
   width: 320px;
   z-index: 3;
 }
+
+/* Phones: every panel is a sheet sliding from the bottom (behaviour in lib/sheet.js).
+   The main panel stays docked, collapsed to its header; the others open on top of it. */
+.grabber {
+  display: none;
+}
 @media (max-width: 600px) {
-  .popup {
-    left: 16px;
-    right: 16px;
+  body .floating.sheet {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
     width: auto;
+    max-height: 85dvh;
+    padding-top: 0;
+    background: var(--sheet-bg);
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    border-radius: 16px 16px 0 0;
+    border-bottom: 0;
+    transition: transform 0.25s ease;
+  }
+  body .floating.sheet:not(#panel) {
+    z-index: 4;
+    animation: sheet-in 0.25s ease-out;
+  }
+  /* the top of a sheet (grabber + title row) stays in place while its content scrolls */
+  .sheet > .grabber,
+  .sheet > .grabber + * {
+    position: sticky;
+    z-index: 5;
+    margin-left: -18px;
+    margin-right: -18px;
+    background: var(--sheet-bg);
+  }
+  .sheet > .grabber {
+    display: block;
+    top: 0;
+    height: 24px;
+    padding-top: 9px; /* not a margin on ::after: it would collapse out of the sticky box */
+    cursor: grab;
+    touch-action: none;
+  }
+  .sheet > .grabber::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 5px;
+    margin: 0 auto;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.28);
+  }
+  .sheet > .grabber + * {
+    top: 24px;
+    margin-top: 0;
+    margin-bottom: 4px;
+    padding: 2px 18px 8px;
+  }
+  .sheet h1,
+  .sheet h2,
+  .sheet > header {
+    touch-action: none;
+  }
+  /* map attribution and scale stay above the collapsed main panel */
+  body .maplibregl-ctrl-bottom-right,
+  body .maplibregl-ctrl-bottom-left {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
   }
 }
 

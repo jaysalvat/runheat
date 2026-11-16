@@ -12,6 +12,13 @@ export function freePadding() {
   if (!map) return 40;
   const W = map.getContainer().clientWidth,
     H = map.getContainer().clientHeight;
+  // phones: bottom sheets cover the lower part of the map
+  if (matchMedia('(max-width: 600px)').matches) {
+    const covered = Math.max(
+      ...[...document.querySelectorAll('.floating.sheet')].map((el) => H - el.getBoundingClientRect().top),
+    );
+    return { top: 60, right: 30, bottom: Math.min(Math.max(covered, 0) + 30, H * 0.7), left: 30 };
+  }
   const drawer = document.getElementById('statsDrawer');
   const panel = document.getElementById('panel');
   const drawerH = drawer ? drawer.offsetHeight + 32 : 40;

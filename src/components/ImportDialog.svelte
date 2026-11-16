@@ -1,6 +1,7 @@
 <script>
   // Import dialog: files, folders or archives, read in the browser (nothing is uploaded)
   import { app } from '../lib/app.svelte.js';
+  import { sheet } from '../lib/sheet.js';
   import { SPORTS } from '../lib/config.js';
   import { nf, plural } from '../lib/format.js';
   import { RunData } from '../lib/data.js';
@@ -133,7 +134,13 @@
 />
 
 {#if app.panel === 'data'}
-  <div class="floating popup dlg" role="dialog" aria-label="Import runs">
+  <div
+    class="floating popup dlg sheet"
+    role="dialog"
+    aria-label="Import runs"
+    use:sheet={{ onDown: () => (app.panel = null), onTap: () => (app.panel = null) }}
+  >
+    <div class="grabber" aria-hidden="true"></div>
     <h2><span>Your runs</span><IconButton label="Close" onclick={() => (app.panel = null)}>✕</IconButton></h2>
     <p class="sum">
       {#if summary.demo}

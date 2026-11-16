@@ -4,6 +4,7 @@
   import { BASES, LAYERS, SPORTS } from '../lib/config.js';
   import { nf, plural } from '../lib/format.js';
   import { mapCtl } from '../lib/mapctl.js';
+  import { sheet, isPhone } from '../lib/sheet.js';
   import IconButton from './ui/IconButton.svelte';
   import Upload from './icons/Upload.svelte';
   import Chart from './icons/Chart.svelte';
@@ -15,7 +16,8 @@
   import Places from './Places.svelte';
 
   const s = app.settings;
-  let collapsed = $state(false);
+  // On phones the panel is a bottom sheet: collapsed it only shows its header, ready for the thumb
+  let collapsed = $state(isPhone());
 
   const BASE_KEYS = Object.keys(BASES);
   const baseOptions = BASE_KEYS.map((value, i) => ({
@@ -76,7 +78,18 @@
 
 <svelte:window onkeydown={shortcut} />
 
-<div class="floating panel" class:collapsed id="panel">
+<div
+  class="floating panel sheet"
+  class:collapsed
+  id="panel"
+  use:sheet={{
+    isCollapsed: () => collapsed,
+    onDown: () => (collapsed = true),
+    onUp: () => (collapsed = false),
+    onTap: () => (collapsed = !collapsed),
+  }}
+>
+  <div class="grabber" aria-hidden="true"></div>
   <h1>
     <span
       >My runs{#if app.info.demo}<span class="demo">Demo</span>{/if}</span
@@ -96,9 +109,6 @@
         aria-keyshortcuts=","
         on={app.panel === 'settings'}
         onclick={() => togglePanel('settings')}><Gear /></IconButton
-      >
-      <span class="collapse"
-        ><IconButton label="Collapse panel" onclick={() => (collapsed = !collapsed)}>▾</IconButton></span
       >
     </span>
   </h1>
@@ -202,23 +212,12 @@
     color: var(--muted);
     font-size: 12px;
   }
-  .collapse {
-    display: none;
-  }
   @media (max-width: 600px) {
-    .panel {
-      left: 16px;
-      right: 16px;
-      width: auto;
-      top: auto;
-      bottom: 16px;
-      max-height: 60%;
-    }
     .collapsed .body {
       display: none;
     }
-    .collapse {
-      display: inline-flex;
+    .collapsed h1 {
+      margin-bottom: 0;
     }
   }
 </style>

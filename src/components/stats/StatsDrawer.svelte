@@ -1,6 +1,7 @@
 <script>
   // Stats drawer: volume + calendar on the left, goals + records on the right
   import { app } from '../../lib/app.svelte.js';
+  import { sheet } from '../../lib/sheet.js';
   import { fmtD, monthName } from '../../lib/format.js';
   import { scopeOf } from '../../lib/period.js';
   import { hideTip } from '../../lib/tooltip.svelte.js';
@@ -27,7 +28,16 @@
   const place = $derived(app.zone != null ? app.zones[app.zone]?.name : null);
 </script>
 
-<section class="floating drawer" id="statsDrawer" aria-label="Statistics">
+<section
+  class="floating drawer sheet"
+  id="statsDrawer"
+  aria-label="Statistics"
+  use:sheet={{
+    onDown: () => (app.settings.stats = false),
+    onTap: () => (app.settings.stats = false),
+  }}
+>
+  <div class="grabber" aria-hidden="true"></div>
   <header>
     <h2>Statistics</h2>
     <span class="ctx">
