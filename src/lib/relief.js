@@ -78,6 +78,14 @@ export function addRelief(map, base) {
     maxzoom: DEM_MAXZOOM,
     tileSize: 256,
   });
+  // 3D terrain gets its own source: MapLibre advises against sharing one with the hillshade
+  map.addSource('dem-terrain', {
+    type: 'raster-dem',
+    encoding: 'terrarium',
+    tiles: [src.sharedDemProtocolUrl],
+    maxzoom: DEM_MAXZOOM,
+    tileSize: 256,
+  });
   map.addSource('contour-src', {
     type: 'vector',
     maxzoom: 15,

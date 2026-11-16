@@ -26,6 +26,8 @@ const DEFAULT_SETTINGS = {
   // hillshade and contour lines, per basemap
   relief: { ...DEFAULT_RELIEF },
   contours: { ...DEFAULT_RELIEF },
+  globe: false, // globe projection when zoomed out
+  terrain: false, // 3D relief, map tilted
   outline: 'tint', // Routes outline: 'dark' | 'tint' | 'none'
   goal: 1000,
   stats: false,

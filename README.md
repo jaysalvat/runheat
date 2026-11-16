@@ -17,13 +17,17 @@ data or plain GPX / TCX / FIT files: everything is processed **in your browser**
   - **Hotspots**, **Heatmap** and **Raw hotspots**: three views of where you spend your time.
   - **New paths**: what you ran for the first time in the selected period.
 - **Basemaps**: Dark, Streets and Satellite, each with optional hillshading and contour lines.
+- **Globe and 3D**: a round Earth when zoomed out (the app opens with a flight from space), and a tilted
+  map with the relief in 3D.
 - **Periods**: drill down from years to months to days, or drag a range.
 - **Filters** by activity type (run, ride, walk / hike, swim, other) and by source.
 - **Places**: your runs grouped by the towns they go through, with a search field.
 - **Stats**: distance per year / month / day, a calendar, a yearly goal, consistency and exploration
   gauges, and records (longest run, best 5 km and 10 km, biggest climb, average pace, total climb).
 - **Selected run**: shown on its own with direction arrows.
-- **Demo data** for a first look: 95 runs on the French Riviera, shifted so they always look recent.
+- **Phones**: panels become bottom sheets, dragged up to open and down to close.
+- **Demo data** for a first look: runs on the French Riviera, shifted so they always look recent, with
+  privacy zones around frequent start points.
 
 ## Screenshots
 

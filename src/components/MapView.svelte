@@ -318,12 +318,18 @@
       attributionControl: { compact: true },
     });
     setBase(s.base);
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
+    // MapLibre opens the compact attribution until the first drag: keep it folded to its ⓘ button
+    // from the start (the full credits are also listed in the settings)
+    map.once('idle', () =>
+      container.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show'),
+    );
     map.on('style.load', () => {
       styleReady = true;
       addRelief(map, s.base);
       reliefReady++;
+      view3d(); // projection and terrain belong to the style: set them again after each basemap change
       addOverlay();
     });
     mapCtl.map = map;
@@ -354,6 +360,7 @@
     const v = app.dataVersion,
       geo = app.geo;
     if (!map || !geo || v === shownVersion) return;
+    const first = !shownVersion;
     shownVersion = v;
     if (map.getSource('runs')) {
       map.getSource('runs').setData(geo.lines);
@@ -361,7 +368,7 @@
       map.getSource('ptsRaw').setData(geo.raw);
       map.getSource('explore').setData(geo.explore);
     } else if (styleReady) addOverlay();
-    if (app.area) map.fitBounds(app.area, { padding: 60, duration: 0 });
+    if (app.area) showArea(app.area, first && s.globe);
   });
 
   // Filters, visibility, opacity, colours
@@ -402,6 +409,40 @@
       map.setPaintProperty(id, 'line-color', trackColor());
     map.setPaintProperty('hl-arrows', 'icon-color', darkTrack());
     map.setPaintProperty('glow', 'line-color', glowColor());
+  });
+
+  // Opening on the globe: start from the whole Earth and fly down to the main area
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function showArea(area, fromSpace) {
+    const cam = { ...map.cameraForBounds(area, { padding: 60 }), ...camera3d() };
+    if (!fromSpace || reducedMotion) return map.jumpTo(cam);
+    map.jumpTo({ center: cam.center, zoom: 1.5, pitch: 0, bearing: 0 });
+    // wait for the globe tiles, but not forever ('idle' may never come while relief tiles stream in)
+    let flown = false;
+    const fly = () =>
+      !flown && (flown = true) && map.flyTo({ ...cam, duration: 4500, curve: 1.6, essential: true });
+    map.once('idle', fly);
+    setTimeout(fly, 1500);
+  }
+
+  // 3D view: a slight tilt and rotation, so the relief reads at once
+  const camera3d = () => (s.terrain ? { pitch: 50, bearing: -15 } : { pitch: 0, bearing: 0 });
+
+  // Globe projection and 3D terrain
+  function view3d() {
+    map.setProjection({ type: s.globe ? 'globe' : 'mercator' });
+    map.setTerrain(s.terrain ? { source: 'dem-terrain', exaggeration: 1.5 } : null);
+  }
+  let shownTerrain = s.terrain;
+  $effect(() => {
+    const terrain = s.terrain;
+    s.globe; // re-run when the projection changes
+    if (!reliefReady || !styleReady) return;
+    view3d();
+    if (terrain !== shownTerrain) {
+      shownTerrain = terrain;
+      map.easeTo({ ...camera3d(), duration: 800 });
+    }
   });
 
   // Relief: hillshade and contours, set per basemap
