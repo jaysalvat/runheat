@@ -351,7 +351,12 @@
 
   function setBase(base) {
     const b = BASES[base];
-    map.setStyle(b.style, { diff: false, ...(b.transform && { transformStyle: b.transform }) });
+    // No paint fade: settings apply at once, and the 3D draped cache (see redraw3d) never keeps a mid-fade frame
+    const transformStyle = (prev, next) => ({
+      ...(b.transform ? b.transform(prev, next) : next),
+      transition: { duration: 0, delay: 0 },
+    });
+    map.setStyle(b.style, { diff: false, transformStyle });
   }
 
   // New dataset: update the sources (or create the layers) and show the main area
@@ -370,6 +375,14 @@
     } else if (styleReady) addOverlay();
     if (app.area) showArea(app.area, first && s.globe);
   });
+
+  // In 3D, MapLibre 6 caches what is draped on the terrain (lines, the veil…) and only redraws it when
+  // source data or the visible layers change, not after a paint or filter change: drop that cache.
+  // (Internal API, hence the guards: without it the map just updates one change late in 3D.)
+  function redraw3d() {
+    for (const tile of map.terrain?.tileManager?.getRenderableTiles?.() || []) tile.releaseRTT?.(map.painter);
+    map.triggerRepaint();
+  }
 
   // Filters, visibility, opacity, colours
   $effect(() => {
@@ -409,6 +422,7 @@
       map.setPaintProperty(id, 'line-color', trackColor());
     map.setPaintProperty('hl-arrows', 'icon-color', darkTrack());
     map.setPaintProperty('glow', 'line-color', glowColor());
+    redraw3d();
   });
 
   // Opening on the globe: start from the whole Earth and fly down to the main area
@@ -462,6 +476,7 @@
     map.setPaintProperty('heat', 'heatmap-intensity', heatIntensity());
     map.setPaintProperty('soft', 'heatmap-intensity', softIntensity());
     map.setPaintProperty('raw', 'heatmap-intensity', softIntensity());
+    redraw3d();
   });
 
   // Highlighted run: outlined, and the map zooms to it (only when it changes, not on a basemap switch)
