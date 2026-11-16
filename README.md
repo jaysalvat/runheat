@@ -1,3 +1,5 @@
+<img src="docs/logo.svg" width="72" alt="runheat logo">
+
 # runheat
 
 Every run you've ever done, on one map.
