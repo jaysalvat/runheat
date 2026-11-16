@@ -1,15 +1,15 @@
-<img src="docs/logo.svg" width="72" alt="runheat logo">
+<img src="docs/logo.svg" width="72" alt="RunHeat logo">
 
-# runheat
+# RunHeat
 
 Every run you've ever done, on one map.
 
 **[Try it live →](https://jaysalvat.github.io/runheat/)** (with demo data, or import your own runs)
 
-runheat turns your GPS activities into routes, heatmaps and stats: **where you run most, the paths you've never taken, your records and how the year is going**. Drop your Strava or Garmin export, Nike Run Club
+RunHeat turns your GPS activities into routes, heatmaps and stats: **where you run most, the paths you've never taken, your records and how the year is going**. Drop your Strava or Garmin export, Nike Run Club
 data or plain GPX / TCX / FIT files: everything is processed **in your browser**, nothing is uploaded.
 
-![runheat: picking years in the side panel, the map follows with the runs of that period](docs/demo.gif)
+![RunHeat: picking years in the side panel, the map follows with the runs of that period](docs/demo.gif)
 
 ## Features
 

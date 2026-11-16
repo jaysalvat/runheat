@@ -191,7 +191,7 @@
   </p>
 
   <a class="version" href="https://github.com/jaysalvat/runheat" target="_blank" rel="noopener"
-    >runheat v{__APP_VERSION__}</a
+    >RunHeat v{__APP_VERSION__}</a
   >
 </div>
 
