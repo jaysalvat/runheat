@@ -190,9 +190,12 @@
     <a href="https://www.geonames.org/" target="_blank" rel="noopener">GeoNames</a>
   </p>
 
-  <a class="version" href="https://github.com/jaysalvat/runheat" target="_blank" rel="noopener"
-    >RunHeat v{__APP_VERSION__}</a
-  >
+  <p class="version">
+    <a href="https://github.com/jaysalvat/runheat" target="_blank" rel="noopener"
+      >RunHeat v{__APP_VERSION__}</a
+    >
+    · By <a class="author" href="https://jaysalvat.com" target="_blank" rel="noopener">Jay Salvat</a>
+  </p>
 </div>
 
 <style>
@@ -257,15 +260,28 @@
     color: var(--text);
   }
   .version {
-    display: block;
-    margin-top: 8px;
+    margin: 8px 0 0;
     color: var(--muted);
     font-size: 11px;
     text-align: center;
+  }
+  .version a {
+    color: inherit;
     text-decoration: none;
   }
-  .version:hover {
+  .version a:hover {
     color: var(--text);
+  }
+  /* the author's name reads as a link */
+  .version .author {
+    color: var(--text);
+    text-decoration: underline;
+    text-decoration-color: rgba(255, 255, 255, 0.3);
+    text-underline-offset: 2px;
+  }
+  .version .author:hover {
+    color: var(--accent);
+    text-decoration-color: currentColor;
   }
   .remove {
     margin-top: 0;
