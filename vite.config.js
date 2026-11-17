@@ -1,6 +1,39 @@
 import { defineConfig, loadEnv } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { VitePWA } from 'vite-plugin-pwa';
 import pkg from './package.json' with { type: 'json' };
+
+// Installable app (PWA): manifest + a service worker that keeps the app itself available offline.
+// The map tiles still need the network; the imported runs live in IndexedDB anyway.
+const pwa = VitePWA({
+  registerType: 'autoUpdate', // a new version is picked up silently, on the next visit
+  injectRegister: 'script',
+  includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+  manifest: {
+    name: 'RunHeat',
+    short_name: 'RunHeat',
+    description: "Every run you've ever done on one map: routes, heatmaps, new paths and stats.",
+    lang: 'en',
+    start_url: './',
+    scope: './',
+    display: 'standalone',
+    background_color: '#0b0d10',
+    theme_color: '#0b0d10',
+    categories: ['sports', 'health', 'fitness'],
+    icons: [
+      { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
+      { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
+      { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+  },
+  workbox: {
+    // the app shell and the demo; the place names (5 MB) are cached the first time an import needs them
+    globPatterns: ['**/*.{js,mjs,css,html,svg,png,json}'],
+    globIgnores: ['og-image.png'],
+    maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+    runtimeCaching: [{ urlPattern: /places\.tsv$/, handler: 'CacheFirst', options: { cacheName: 'places' } }],
+  },
+});
 
 // Link previews need absolute URLs, but the deployed address is not hard-coded in the repo:
 // set SITE_URL in .env (git-ignored) or in the build environment, e.g. SITE_URL=https://example.com/
@@ -24,7 +57,7 @@ function siteUrl(url) {
 
 export default defineConfig(({ mode }) => ({
   define: { __APP_VERSION__: JSON.stringify(pkg.version) }, // shown in the settings
-  plugins: [svelte(), siteUrl(process.env.SITE_URL || loadEnv(mode, process.cwd(), '').SITE_URL)],
+  plugins: [svelte(), siteUrl(process.env.SITE_URL || loadEnv(mode, process.cwd(), '').SITE_URL), pwa],
   // Relative asset paths: the built site works from any folder or subdomain
   base: './',
   worker: { format: 'es' },

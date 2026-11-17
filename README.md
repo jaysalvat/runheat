@@ -28,6 +28,8 @@ data or plain GPX / TCX / FIT files: everything is processed **in your browser**
   gauges, and records (longest run, best 5 km and 10 km, biggest climb, average pace, total climb).
 - **Selected run**: shown on its own with direction arrows.
 - **Phones**: panels become bottom sheets, dragged up to open and down to close.
+- **Installable**: add it to your home screen or install it from the browser (it's a PWA). The app
+  itself then opens offline too; only the map tiles need the network.
 - **Demo data** for a first look: runs on the French Riviera, shifted so they always look recent, with
   privacy zones around frequent start points.
 
@@ -44,7 +46,8 @@ Your files never leave your device. They are read by a Web Worker in the page, a
 in the browser (IndexedDB). There is no server, account or tracking.
 
 The only network requests are for the map: basemap tiles, elevation tiles for the relief, and the
-`places.tsv` file served with the app.
+`places.tsv` file served with the app. A service worker keeps the app's own files in the browser cache,
+so it starts offline; it never sees or sends your activities.
 
 ## Importing your activities
 
